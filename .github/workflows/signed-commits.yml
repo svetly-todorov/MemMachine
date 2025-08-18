@@ -1,0 +1,38 @@
+# This workflow validates that all commits in a pull request are correctly signed.
+# This ensures a verifiable chain of custody for all code contributions.
+
+name: Enforce Signed Commits
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  verify-signed-commits:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          # Fetch all history to ensure the GPG verification works correctly.
+          fetch-depth: 0
+
+      - name: Verify signed commits
+        run: |
+          # Use `git log` to get the signing status of each commit in the PR.
+          # The `--pretty='%G? %h'` format shows the signing status ('G' for good) and the commit hash.
+          # We check the commits from the base branch (main) to the current HEAD of the PR.
+          commit_statuses=$(git log --pretty='%G? %h' origin/main..HEAD)
+
+          echo "Verifying the following commits for a GPG signature:"
+          echo "$commit_statuses"
+
+          # Loop through each line and check the first character (the signing status).
+          while read -r status commit_hash; do
+            if [ "$status" != "G" ]; then
+              echo "::error::Commit $commit_hash is not signed or has a bad signature. All commits must be signed."
+              exit 1
+            fi
+          done <<< "$commit_statuses"
+
+          echo "All commits in this pull request are correctly signed. ✅"
