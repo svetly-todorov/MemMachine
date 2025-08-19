@@ -2,6 +2,8 @@
 # This ensures a verifiable chain of custody for all code contributions.
 
 name: Enforce Signed Commits
+permissions:
+  contents: read
 
 on:
   pull_request:
