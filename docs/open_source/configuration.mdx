@@ -1,0 +1,25 @@
+---
+title: "Configuration"
+description: "Fine-Tuning Your MemMachine API"
+icon: "gear"
+---
+## Configuring MemMachine
+
+MemMachine offers a variety of configuration options you can set during setup. These simple variables guide the API's behavior, ensuring MemMachine works exactly as you need it to for your unique environment.
+
+## Tailor MemMachine to Your Needs
+
+Check out the following configuration options, an example of how to set, where to set, and a link to more information about the variable options.
+
+### Reranker
+    Checkout our [re-ranker](./reranker) page for more information on options.
+    | Parameter | Type | Default | Description |
+    | :-------- | :--- | :------ | :---------- |
+    | `type` | `str` | `identity` | The [re-ranker](./reranker) type you choose to use.  Options are `cross-encoder`,`bm25`,`identity`,`rrf-hybrid`|
+    | `model_vendor` | `str` | `None` | Vendor of the re-ranker model chosen. | 
+    | `model_name` | `str` | `None` | The name of the re-ranker chosen. |
+    | `api_key` | `str` | `None` | The api key associated with the chosen re-ranker. |
+    | `url` | `str` | `None` | The url where your chosen re-ranker can be found. |
+    | `reranker_ids` | `str` | `None` | IDs for the reranker you chose to use.  Currently there are 2 slots or IDs that can be set, `ranker1` and `ranker2`|
+
+### Embedder
