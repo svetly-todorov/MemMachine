@@ -7,8 +7,8 @@ icon: "gear"
 
 Understanding Configuration Settings
 You can customize your application's settings with two types of configuration: **Global** and **Local**.
- - **Global Configuration** acts as the ***default*** setting for all your applications. Think of it as your standard setup that everything uses unless told otherwise.
- - **Local Configuration** is used when you need to make specific, one-time adjustments for a single session or task.
+ - **Global Configuration** acts as the ***default*** setting for all your applications. Think of it as your standard setup that everything uses unless told otherwise.  This file should reside in your Project root directory.
+ - **Local Configuration** is used when you need to make specific, one-time adjustments for a single session or task.  This is best for situations where you have multiple agents, and wish to configure each agent differently.  The file should reside in the root directory for each individual agent.
 
 When a local configuration is present, it will take priority and override the global settings, so you can easily make temporary changes without affecting your main setup. The only exception to this is for plugin configurations, which always use the global settings.
 
