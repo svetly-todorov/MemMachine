@@ -7,6 +7,11 @@
     "light": "#429cf1",
     "dark": "#a8bacb"
   },
+  "integrations": {
+    "ga4": {
+        "measurementId": "G-166982145"
+    }
+  },
   "favicon": "favicon.ico",
   "navigation": {
     "tabs": [
@@ -34,50 +39,38 @@
             "group": "Open Source",
             "icon": "globe",
             "pages": [
-             "open_source/introduction",
-             "open_source/configuration",
-             "open_source/memory_types",
-             "open_source/databases",
-             "open_source/community"
+              "open_source/introduction",
+              "open_source/configuration",
+              "open_source/memory_types",
+              "open_source/databases",
+              "open_source/community"
             ]
           }
-        ]  
+        ]
       },
       {
-        "tab": "API reference",
+        "tab": "API Reference",
         "groups": [
-          {
-            "group": "API Documentation",
-            "pages": [
-              "api_reference/intro"
+        {
+           "group": "PythonSDK",
+           "pages": [
+             "api_reference/intro",
+             "api_reference/python/episodic_memory",
+             "api_reference/python/episodic_memory_manager",
+             "api_reference/python/memory_types"
             ]
           },
-          {
-            "group": "Python SDK",
-            "pages": [
-              "api_reference/intro",
-              "api_reference/python/episodic_memory",
-              "api_reference/python/episodic_memory_manager"
-            ]
+        {
+          "group": "API reference",
+          "openapi": "openapi.json",
+          "playground": {
+            "display": "interactive"
           },
-          {
-            "group": "MCP Server",
-            "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
-            ]
-          },
-          {
-            "group": "RESTful API",
-            "pages": [
-              "api-reference/endpoint/get",
-              "api-reference/endpoint/create",
-              "api-reference/endpoint/delete",
-              "api-reference/endpoint/webhook"
-            ]
+          "examples": {
+          "languages": ["python"],
+          "defaults": "required"
           }
+        }
         ]
       },
       {
@@ -131,15 +124,15 @@
   },
   "contextual": {
     "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "perplexity",
+      "mcp",
+      "cursor",
+      "vscode"
+    ]
   },
   "footer": {
     "socials": {

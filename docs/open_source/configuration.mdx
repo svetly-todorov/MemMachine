@@ -5,21 +5,205 @@ icon: "gear"
 ---
 ## Configuring MemMachine
 
-MemMachine offers a variety of configuration options you can set during setup. These simple variables guide the API's behavior, ensuring MemMachine works exactly as you need it to for your unique environment.
+Understanding Configuration Settings
+You can customize your application's settings with two types of configuration: **Global** and **Local**.
+ - **Global Configuration** acts as the ***default*** setting for all your applications. Think of it as your standard setup that everything uses unless told otherwise.  This file should reside in your Project root directory.
+ - **Local Configuration** is used when you need to make specific, one-time adjustments for a single session or task.  This is best for situations where you have multiple agents, and wish to configure each agent differently.  The file should reside in the root directory for each individual agent.
+
+When a local configuration is present, it will take priority and override the global settings, so you can easily make temporary changes without affecting your main setup. The only exception to this is for plugin configurations, which always use the global settings.
+
+You can set up both types of configuration using a YAML file.
 
 ## Tailor MemMachine to Your Needs
 
 Check out the following configuration options, an example of how to set, where to set, and a link to more information about the variable options.
 
-### Reranker
-    Checkout our [re-ranker](./reranker) page for more information on options.
-    | Parameter | Type | Default | Description |
-    | :-------- | :--- | :------ | :---------- |
-    | `type` | `str` | `identity` | The [re-ranker](./reranker) type you choose to use.  Options are `cross-encoder`,`bm25`,`identity`,`rrf-hybrid`|
-    | `model_vendor` | `str` | `None` | Vendor of the re-ranker model chosen. | 
-    | `model_name` | `str` | `None` | The name of the re-ranker chosen. |
-    | `api_key` | `str` | `None` | The api key associated with the chosen re-ranker. |
-    | `url` | `str` | `None` | The url where your chosen re-ranker can be found. |
-    | `reranker_ids` | `str` | `None` | IDs for the reranker you chose to use.  Currently there are 2 slots or IDs that can be set, `ranker1` and `ranker2`|
+### Long-Term Memory
+
+Parameters that pertain to Long-Term memory settings.
+| Parameter                     | Required? | Default       | Description                                                  |
+| ----------------------------- | --------- | ------------- | ------------------------------------------------------------ |
+| `derivative_deriver`          | No        | `sentence`    | Sets the method for deriving new, insightful information from a memory's content (can choose `identity` or `sentence`). |
+| `metadata_derivative_format`  | No        | N/A           | A template string for formatting derived metadata from memory content. Uses bracket notation to pull properties like `user_metadata[source_timestamp]` and `isolation_properties[producer_id]`. |
+| `embedder`                    | No        | N/A           | The ID of the `embedder` model to use for generating vector embeddings for long-term memory. |
+| `reranker`                    | No        | N/A           | The ID of the `reranker` to use for reordering search results to improve relevance. |
+| `vector_graph_store`          | No        | N/A           | The ID of the `storage` vendor to use for long-term memory and vector graph storage. |
+
+An example of these parameters in a config file would look like the following:
+```YAML
+long_term_memory:
+  derivative_deriver: sentence
+  metadata_derivative_format: "[{user_metadata[source_timestamp]}] {isolation_properties[producer_id]}: {content}"
+  embedder: my_embedder_id
+  reranker: my_reranker_id
+  vector_graph_store: my_storage_id
+```
+
+### Session Memory
+
+| Parameter                       | Required? | Default       | Description                                                  |
+| ------------------------------- | --------- | ------------- | ------------------------------------------------------------ |
+| `model_name`                    | No        | N/A           | The ID of the model to use for session memory.               |
+| `message_capacity`              | No        | 500           | The maximum number of messages to store in session memory.   |
+| `max_message_length`            | No        | 16000         | The maximum length of a message in session memory.           |
+| `max_token_num`                 | No        | 8000          | The maximum number of tokens to store in session memory.     |
+
+An example of these parameters in a config file would look like the following:
+```YAML
+sessionmemory:
+  model_name: my_model_id
+  message_capacity: 500
+  max_message_length: 16000
+  max_token_num: 8000
+```
+
+### Sessiondb
+
+| Parameter                            | Required? | Default       | Description                                                  |
+| ------------------------------------ | --------- | ------------- | ------------------------------------------------------------ |
+| `uri`                                | Yes       | sqlitetest.db | The connection URI for the session database. Defaults to an in-memory SQLite database for testing. |
+
+An example of these parameters in a config file would look like the following:
+```YAML
+sessiondb:
+  uri: sqlitetest.db
+```
+
+### LLM Model
+
+The LLM Model to be used with the memory system.
+
+| Parameter                               | Required? | Default       | Description                                                  |
+| --------------------------------------- | --------- | ------------- | ------------------------------------------------------------ |
+| `<ID>.model_name`                       | Yes       | N/A           | The name of a large language model to use (e.g., `gpt-4o-mini`). |
+| `<ID>.api_key`                          | No        | N/A           | The API key for the specified model.                         |
+
+An example of these parameters in a config file would look like the following:
+```YAML
+model:
+  my_model_id:
+    model_name: "gpt-4o-mini"
+    api_key: <YOUR_API_KEY>
+```
+
+
+### Storage
+
+The Storage database that can be chosen for our Memory to use. 
+<Note> Only graph database is supported at this time </Note>
+
+| Parameter                         | Required? | Default       | Description                                                  |
+| --------------------------------- | --------- | ------------- | ------------------------------------------------------------ |
+| `<ID>.vendor_name`                | No        | neo4j         | The name of the database vendor to use (e.g., `neo4j`).      |
+| `<ID>.host`                       | No        | localhost     | The hostname or IP address of the database server.           |
+| `<ID>.port`                       | No        | 7687          | The port number for the database connection.                 |
+| `<ID>.user`                       | No        | N/A           | The username for database authentication.                    |
+| `<ID>.password`                   | No        | N/A           | The password for database authentication.                    |
+
+An example of these parameters in a config file would look like the following:
+```YAML
+storage:
+  my_storage_id:
+    vendor_name: neo4j
+    host: localhost
+    port: 7687
+    user: neo4j
+    password: <YOUR_PASSWORD_HERE>
+```
 
 ### Embedder
+
+The Embedder model that we choose to use.
+| Parameter                            | Required? | Default       | Description                                                  |
+| ------------------------------------ | --------- | ------------- | ------------------------------------------------------------ |
+| `<ID>.model_vendor`                  | Yes       | N/A           | The name of an embedding model to use (e.g., `text-embedding-3-small`). |
+| `<ID>.api_key`                       | No        | N/A           | The API key for the specified embedding model.               |
+| `<ID>.type`                          | No        | N/A           | The type of reranker (e.g., `rrf-hybrid`, `identity`, `bm25`, `cross-encoder`). |
+| `<ID>.reranker_ids`                  | No        | N/A           | A list of other reranker IDs to combine for hybrid reranking. |
+| `<ID>.model_name`                    | Yes       | N/A           | The name of a model to use for cross-encoder reranking (e.g., `cross-encoder/qnli-electra-base`). |
+
+An example of these parameters in a config file would look like the following:
+```YAML
+embedder:
+  my_embedder_id:
+    model_name: "text-embedding-3-small"
+    api_key: <YOUR_API_KEY>
+```
+
+### Reranker
+Parameters to set for the chosen Reranker
+| Parameter                            | Required? | Default       | Description                                                  |
+| ------------------------------------ | --------- | ------------- | ------------------------------------------------------------ |
+| `type`                               | Yes       | `rrf-hybrid`  | The type of reranker you choose to use.
+
+An example of these parameters in a config file would look like the following:
+```YAML
+reranker:
+  my_reranker_id:
+    type: "rrf-hybrid"
+    reranker_ids:
+      - id_ranker_id
+      - bm_ranker_id
+      - ce_ranker_id
+  id_ranker_id:
+    type: "identity"
+  bm_ranker_id:
+    type: "bm25"
+  ce_ranker_id:
+    type: "cross-encoder"
+    model_name: "cross-encoder/qnli-electra-base"
+```
+
+### Example Config.YAML File
+
+Below is a complete example of a `Config.YAML` file that you can use for default settings when deploying MemMachine.  This example comes with the MemMachine package when downloading.
+
+```YAML
+long_term_memory:
+  derivative_deriver: sentence
+  metadata_derivative_format: "[{user_metadata[source_timestamp]}] {isolation_properties[producer_id]}: {content}"
+  embedder: my_embedder_id
+  reranker: my_reranker_id
+  vector_graph_store: my_storage_id
+
+sessiondb:
+  uri: sqlitetest.db
+
+model:
+  my_model_id:
+    model_name: "gpt-4o-mini"
+    api_key: <YOUR_API_KEY>
+storage:
+  my_storage_id:
+    vendor_name: neo4j
+    host: localhost
+    port: 7687
+    user: neo4j
+    password: <YOUR_PASSWORD_HERE>
+
+sessionmemory:
+  model_name: my_model_id
+  message_capacity: 500
+  max_message_length: 16000
+  max_token_num: 8000
+
+embedder:
+  my_embedder_id:
+    model_name: "text-embedding-3-small"
+    api_key: <YOUR_API_KEY>
+
+reranker:
+  my_reranker_id:
+    type: "rrf-hybrid"
+    reranker_ids:
+      - id_ranker_id
+      - bm_ranker_id
+      - ce_ranker_id
+  id_ranker_id:
+    type: "identity"
+  bm_ranker_id:
+    type: "bm25"
+  ce_ranker_id:
+    type: "cross-encoder"
+    model_name: "cross-encoder/qnli-electra-base"
+```

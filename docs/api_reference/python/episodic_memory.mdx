@@ -1,13 +1,10 @@
 ---
 title: "Episodic Memory"
-description: "APIs that call Episodic Memory"
-icon: "people-group"
+description: "The `EpisodicMemory` module and class provides a high-level interface for creating and managing episodic memory."
+icon: "memory"
 ---
-<a id="memmachine.episodic_memory"></a>
 
-# memmachine.episodic\_memory
-
-Defines the core memory instance for a specific conversational context.
+This module defines the core memory instance for a specific conversational context.
 
 This module provides the `EpisodicMemory` class, which acts as the primary
 orchestrator for an individual memory session. It integrates short-term
@@ -24,6 +21,34 @@ Key responsibilities include:
   `EpisodicMemoryManager`.
 
 <a id="memmachine.episodic_memory.EpisodicMemory"></a>
+
+
+## Initialization
+
+To get started, you'll need to initialize the `MemMachineClient` with your API key.
+
+```
+from memmachine import MemMachineClient
+
+client = MemMachineClient(api_key="your_api_key")
+```
+
+## Creating an Episode
+
+To create a new episode, use the `create_episode` method.
+
+```
+episode_data = {
+    "title": "My First Episode",
+    "description": "This is a test episode for the documentation."
+}
+
+try:
+    new_episode = client.episodic_memory.create_episode(episode_data)
+    print(f"Created new episode with ID: {new_episode.id}")
+except Exception as e:
+    print(f"Error creating episode: {e}")
+```
 
 ## EpisodicMemory Objects
 
@@ -44,7 +69,7 @@ user, and session IDs) and is managed by a central
 
 <a id="memmachine.episodic_memory.EpisodicMemory.__init__"></a>
 
-#### \_\_init\_\_
+### \_\_init\_\_
 
 ```python
 def __init__(manager, config: dict, memory_context: MemoryContext)
@@ -61,7 +86,7 @@ Initializes a EpisodicMemory instance.
 
 <a id="memmachine.episodic_memory.EpisodicMemory.reference"></a>
 
-#### reference
+### reference
 
 ```python
 async def reference() -> bool
@@ -79,7 +104,7 @@ memory instance.
 
 <a id="memmachine.episodic_memory.EpisodicMemory.add_memory_episode"></a>
 
-#### add\_memory\_episode
+### add\_memory\_episode
 
 ```python
 async def add_memory_episode(producer: str,
@@ -113,7 +138,7 @@ the current memory context.
 
 <a id="memmachine.episodic_memory.EpisodicMemory.close"></a>
 
-#### close
+### close
 
 ```python
 async def close()
@@ -128,7 +153,7 @@ registry.
 
 <a id="memmachine.episodic_memory.EpisodicMemory.delete_data"></a>
 
-#### delete\_data
+### delete\_data
 
 ```python
 async def delete_data()
@@ -140,7 +165,7 @@ This is a destructive operation.
 
 <a id="memmachine.episodic_memory.EpisodicMemory.query_memory"></a>
 
-#### query\_memory
+### query\_memory
 
 ```python
 async def query_memory(
@@ -169,7 +194,7 @@ any available summary.
 
 <a id="memmachine.episodic_memory.EpisodicMemory.formalize_query_with_context"></a>
 
-#### formalize\_query\_with\_context
+### formalize\_query\_with\_context
 
 ```python
 async def formalize_query_with_context(query: str,
