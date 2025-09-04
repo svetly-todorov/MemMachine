@@ -1,10 +1,24 @@
 ---
 title: "Episodic Memory Manager"
 description: "APIs that call Episodic Memory Manager"
-icon: "people-group"
+icon: "list-check"
 ---
 
 The `EpisodicMemoryManager` provides methods for managing and querying your episodic memory. It's the central class for performing actions like searching for specific episodes.
+
+This module provides the `EpisodicMemoryMemoryManager`, a singleton class that
+acts as a central factory and registry for `EpisodicMemory` objects. It
+is responsible for:
+
+- Loading and merging configurations from files.
+- Creating, retrieving, and managing context-specific memory instances based
+ on group, agent, user, and session IDs.
+- Ensuring that each unique conversational context has a dedicated memory
+  instance.
+- Interacting with a `SessionManager` to persist and retrieve session
+  information.
+
+<a id="memmachine.episodic_memory_manager.EpisodicMemoryManager"></a>
 
 ## Initialization
 
@@ -42,24 +56,6 @@ except Exception as e:
     print(f"Error during episode search: {e}")
 ```
 <a id="memmachine.episodic_memory_manager"></a>
-
-## memmachine.episodic\_memory\_manager
-
-Manages the lifecycle and configuration of memory instances.
-
-This module provides the `EpisodicMemoryMemoryManager`, a singleton class that
-acts as a central factory and registry for `EpisodicMemory` objects. It
-is responsible for:
-
-- Loading and merging configurations from files.
-- Creating, retrieving, and managing context-specific memory instances based
- on group, agent, user, and session IDs.
-- Ensuring that each unique conversational context has a dedicated memory
-  instance.
-- Interacting with a `SessionManager` to persist and retrieve session
-  information.
-
-<a id="memmachine.episodic_memory_manager.EpisodicMemoryManager"></a>
 
 ## EpisodicMemoryManager Objects
 

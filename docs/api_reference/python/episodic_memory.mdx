@@ -1,8 +1,28 @@
 ---
 title: "Episodic Memory"
-description: "The `EpisodicMemory` class provides a high-level interface for creating and managing episodic memory."
-icon: "people-group"
+description: "The `EpisodicMemory` module and class provides a high-level interface for creating and managing episodic memory."
+icon: "memory"
 ---
+
+This module defines the core memory instance for a specific conversational context.
+
+This module provides the `EpisodicMemory` class, which acts as the primary
+orchestrator for an individual memory session. It integrates short-term
+(session) and long-term (declarative) memory stores to provide a unified
+interface for adding and retrieving conversational data.
+
+Key responsibilities include:
+- Managing the lifecycle of the memory instance through reference counting.
+- Adding new conversational `Episode` objects to both session and declarative
+  memory.
+- Retrieving relevant context for a query by searching both memory types.
+- Interacting with a language model for memory-related tasks.
+- Each instance is uniquely identified by a `MemoryContext` and managed by the
+  `EpisodicMemoryManager`.
+
+<a id="memmachine.episodic_memory.EpisodicMemory"></a>
+
+
 ## Initialization
 
 To get started, you'll need to initialize the `MemMachineClient` with your API key.
@@ -29,28 +49,6 @@ try:
 except Exception as e:
     print(f"Error creating episode: {e}")
 ```
-
-<a id="memmachine.episodic_memory"></a>
-
-### memmachine.episodic\_memory
-
-Defines the core memory instance for a specific conversational context.
-
-This module provides the `EpisodicMemory` class, which acts as the primary
-orchestrator for an individual memory session. It integrates short-term
-(session) and long-term (declarative) memory stores to provide a unified
-interface for adding and retrieving conversational data.
-
-Key responsibilities include:
-- Managing the lifecycle of the memory instance through reference counting.
-- Adding new conversational `Episode` objects to both session and declarative
-  memory.
-- Retrieving relevant context for a query by searching both memory types.
-- Interacting with a language model for memory-related tasks.
-- Each instance is uniquely identified by a `MemoryContext` and managed by the
-  `EpisodicMemoryManager`.
-
-<a id="memmachine.episodic_memory.EpisodicMemory"></a>
 
 ## EpisodicMemory Objects
 

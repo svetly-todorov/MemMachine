@@ -56,7 +56,8 @@
            "pages": [
              "api_reference/intro",
              "api_reference/python/episodic_memory",
-             "api_reference/python/episodic_memory_manager"
+             "api_reference/python/episodic_memory_manager",
+             "api_reference/python/memory_types"
             ]
           },
         {
