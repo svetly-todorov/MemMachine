@@ -1,0 +1,246 @@
+{
+  "openapi": "3.0.0",
+  "info": {
+    "title": "MemMachine API",
+    "description": "API for interacting with MemMachine's Profile and Episodic Memory components.",
+    "version": "1.0.0"
+  },
+  "servers": [
+    {
+      "url": "http://localhost:8080"
+    }
+  ],
+  "tags": [
+    {
+      "name": "REST API",
+      "description": "Endpoints for direct application-to-system interaction."
+    },
+    {
+      "name": "MCP",
+      "description": "Simplified endpoints for AI agent and LLM tool use."
+    }
+  ],
+  "paths": {
+    "/add_memory": {
+      "post": {
+        "tags": [
+          "REST API"
+        ],
+        "summary": "add_memory",
+        "description": "This endpoint first retrieves the appropriate episodic memory instance based on the session context (group, agent, user, session IDs). It then adds the episode to the episodic memory. If successful, it also passes the message to the profile memory for ingestion.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewEpisode"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Memory episode successfully added."
+          },
+          "400": {
+            "description": "Invalid producer or produced_for IDs."
+          },
+          "404": {
+            "description": "No matching episodic memory instance found."
+          }
+        }
+      }
+    },
+    "/search_memory": {
+      "post": {
+        "tags": [
+          "REST API"
+        ],
+        "summary": "search_memory",
+        "description": "Retrieves the relevant episodic memory instance and then performs concurrent searches in both the episodic memory and the profile memory. The results are combined into a single response object.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchQuery"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Search successful.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No matching episodic memory instance found."
+          }
+        }
+      }
+    },
+    "/llms/add_memmachine": {
+      "post": {
+        "tags": [
+          "MCP"
+        ],
+        "summary": "add_memmachine",
+        "description": "Designed for LLM tool use. This tool simplifies the process for LLMs by taking a single 'content' string as a parameter.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "content": {
+                    "type": "string",
+                    "description": "The string content of the memory to be added."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Memory added successfully."
+          }
+        }
+      }
+    },
+    "/llms/search_memmachine": {
+      "post": {
+        "tags": [
+          "MCP"
+        ],
+        "summary": "search_memmachine",
+        "description": "Designed for LLM tool use. This tool is optimized for LLMs to easily find relevant context using a simple 'query' parameter.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "query": {
+                    "type": "string",
+                    "description": "The phrase to search for."
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Search successful.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "description": "search results, internally separated according to memory source."
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "NewEpisode": {
+        "type": "object",
+        "properties": {
+          "producer": {
+            "type": "string"
+          },
+          "produced_for": {
+            "type": "string"
+          },
+          "episode_content": {
+            "type": "string"
+          },
+          "episode_type": {
+            "type": "string"
+          },
+          "metadata": {
+            "type": "object"
+          },
+          "group_id": {
+            "type": "string"
+          },
+          "agent_id": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "user_id": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "session_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "producer",
+          "produced_for",
+          "episode_content",
+          "episode_type"
+        ]
+      },
+      "SearchQuery": {
+        "type": "object",
+        "properties": {
+          "query": {
+            "type": "string"
+          },
+          "limit": {
+            "type": "integer"
+          },
+          "group_id": {
+            "type": "string"
+          },
+          "agent_id": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "user_id": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "session_id": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "query"
+        ]
+      },
+      "SearchResult": {
+        "type": "object",
+        "properties": {
+          "content": {
+            "type": "object"
+          }
+        },
+        "description": "Response model for memory search results."
+      }
+    }
+  }
+}

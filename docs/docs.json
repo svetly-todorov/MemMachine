@@ -34,42 +34,35 @@
             "group": "Open Source",
             "icon": "globe",
             "pages": [
-             "open_source/introduction",
-             "open_source/configuration",
-             "open_source/memory_types",
-             "open_source/databases",
-             "open_source/community"
+              "open_source/introduction",
+              "open_source/configuration",
+              "open_source/memory_types",
+              "open_source/databases",
+              "open_source/community"
             ]
           }
-        ]  
+        ]
       },
       {
-        "tab": "API reference",
+        "tab": "API Reference",
         "groups": [
           {
-            "group": "API Documentation",
-            "pages": [
-              "api_reference/intro"
-            ]
+            "group": "API reference",
+            "openapi": "openapi.json",
+            "playground": {
+              "display": "interactive"
+            },
+            "examples": {
+              "languages": ["python"],
+              "defaults": "required"
+            }
           },
           {
-            "group": "Python SDK",
+           "group": "PythonSDK",
             "pages": [
               "api_reference/intro",
               "api_reference/python/episodic_memory",
               "api_reference/python/episodic_memory_manager"
-            ]
-          },
-          {
-            "group": "MCP Server",
-            "pages": [
-              "api-reference/endpoint/get"
-            ]
-          },
-          {
-            "group": "RESTful API",
-            "pages": [
-              "api-reference/endpoint/get"
             ]
           }
         ]
@@ -125,15 +118,15 @@
   },
   "contextual": {
     "options": [
-     "copy",
-     "view",
-     "chatgpt",
-     "claude",
-     "perplexity",
-     "mcp",
-     "cursor",
-     "vscode"
-   ]
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "perplexity",
+      "mcp",
+      "cursor",
+      "vscode"
+    ]
   },
   "footer": {
     "socials": {
