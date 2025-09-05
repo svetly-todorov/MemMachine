@@ -58,11 +58,133 @@ episodic_memory = await episodic_memory_manager.get_episodic_memory_instance(
     print(f"Formalized query: {formalized_query}")
 ```
   </Tab>
-  <Tab title="MCP API" >
-    Content related to MCP API hello world example.
+  <Tab title="MCP API">
 
+### Add a Memory 
+
+```Python
+import requests
+import json
+
+# The API endpoint to add memory
+url = 'https://memmachine.mintlify.app/llms/add_memmachine'
+
+# The "Hello World" text we want to add
+payload = {
+    'content': 'Hello, MemMachine! This is my first memory.'
+}
+
+# Set up the headers
+headers = {
+    'Content-Type': 'application/json'
+}
+
+# Make the POST request
+response = requests.post(url, headers=headers, data=json.dumps(payload))
+
+# Print the response from the server
+print(f"Status Code: {response.status_code}")
+print(f"Response: {response.text}")
+```
+
+### Search for a Memory
+```Python
+import requests
+import json
+
+# The API endpoint to search memory
+url = 'https://memmachine.mintlify.app/llms/search_memmachine'
+
+# The query to find our "Hello World" entry
+payload = {
+    'query': 'first memory'
+}
+
+# Set up the headers
+headers = {
+    'Content-Type': 'application/json'
+}
+
+# Make the POST request
+response = requests.post(url, headers=headers, data=json.dumps(payload))
+
+# Print the search results
+print(f"Status Code: {response.status_code}")
+print(f"Search Results: {response.text}")
+```
   </Tab>
   <Tab title="REST API">
-    Content related to REST API hello world example.
+    
+### Add a Memory 
+
+This call requires several parameters to identify the context of the memory, such as user_id, group_id, and episode_content.
+
+```Python
+
+import requests
+import json
+
+# The REST API endpoint to add memory
+url = 'http://localhost:8080/add_memory'
+
+# The "Hello World" memory we want to add, along with context
+payload = {
+    'group_id': 'hello_world_group',
+    'agent_id': 'my_agent',
+    'user_id': 'user_001',
+    'session_id': 'session_001',
+    'producer': 'user',
+    'produced_for': 'my_agent',
+    'episode_content': 'Hello, MemMachine! This is my first memory using the REST API.',
+    'episode_type': 'conversation',
+    'metadata': {}
+}
+
+# Set up the headers
+headers = {
+    'Content-Type': 'application/json'
+}
+
+# Make the POST request
+response = requests.post(url, headers=headers, data=json.dumps(payload))
+
+# Print the response from the server
+print(f"Status Code: {response.status_code}")
+print(f"Response: {response.text}")
+```
+
+### Search for a Memory
+
+Now that the text is in the system's memory, you can search for it using a POST request to the /search_memory endpoint. This call requires you to specify the query and some context IDs to narrow the search.
+
+```Python
+import requests
+import json
+
+# The REST API endpoint to search memory
+url = 'http://localhost:8080/search_memory'
+
+# The query and context IDs to find our "Hello World" entry
+payload = {
+    'query': 'first memory using the REST API',
+    'limit': 5,
+    'group_id': 'hello_world_group',
+    'agent_id': ['my_agent'],
+    'user_id': ['user_001'],
+    'session_id': 'session_001'
+}
+
+# Set up the headers
+headers = {
+    'Content-Type': 'application/json'
+}
+
+# Make the POST request
+response = requests.post(url, headers=headers, data=json.dumps(payload))
+
+# Print the search results
+print(f"Status Code: {response.status_code}")
+print(f"Search Results: {response.text}")
+```
   </Tab>
 </Tabs>
