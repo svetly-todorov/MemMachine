@@ -1,9 +1,68 @@
 ---
 title: "Quickstart"
-description: "Start using personalized memory in minutes"
+description: "Start using MemMachine's personalized memory in minutes"
 icon: "circle-play"
 ---
 
-## Prerequisites
+## Installation
 
-There are some prerequisites that you need to have before we can begin...
+```bash
+instructions will go here
+```
+
+## Basic Usage
+
+<Tabs>
+  <Tab title="Python SDK">
+    ### Initialize MemMachine
+```Python
+import asyncio
+from datetime import datetime
+
+from memmachine.episodic_memory.data_types import ContentType
+from memmachine.episodic_memory.episodic_memory_manager import EpisodicMemoryManager
+
+config_path = "config.yaml"
+
+episodic_memory_manager = EpisodicMemoryManager.create_episodic_memory_manager(
+    config_path
+)
+
+user_id = "my_user"
+users = [user_id]
+group_id = "my_group"
+session_id = "my_session"
+
+episodic_memory = await episodic_memory_manager.get_episodic_memory_instance(
+    group_id=group_id,
+    session_id=session_id,
+    user_id=users,
+    config_path=config_path,
+)
+```
+### Store a Memory
+    ```python
+    await episodic_memory.add_memory_episode(
+        producer=user_id,
+        produced_for=user_id,
+        episode_content="My favorite color is blue.",
+        episode_type="default",
+        content_type=ContentType.STRING,
+        timestamp=datetime.now(),
+    )
+    ```
+
+### Retrieve Memories/Search Memories
+```python
+    formalized_query = await episodic_memory.formalize_query_with_context("What is my favorite color?")
+    print(f"Formalized query: {formalized_query}")
+```
+  </Tab>
+  <Tab title="MCP API" >
+    Content related to MCP API hello world example.
+
+  </Tab>
+  <Tab title="REST API">
+    Content related to REST API hello world example.
+  </Tab>
+</Tabs>
