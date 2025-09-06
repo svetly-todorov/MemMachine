@@ -33,14 +33,16 @@ Follow these steps to set up your local development environment:
    manage dependencies.
 
     ```bash
-    python -m venv .venv
+    python3 -m venv .venv
     source .venv/bin/activate
     ```
 
 3. **Install Dependencies:**
 
+    In the project root directory, where the `pyproject.toml` file resides, run:
+
     ```bash
-    pip install -r requirements.txt
+    pip install .
     ```
 
 ## 3. Code Style and Quality
