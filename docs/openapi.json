@@ -7,7 +7,7 @@
   },
   "tags": [
     {
-      "name": "RPC APIs",
+      "name": "REST APIs",
       "description": "Core RESTful endpoints for managing and interacting with MemMachine."
     },
     {
@@ -19,7 +19,7 @@
     "/add_memory": {
       "post": {
         "tags": [
-          "RPC APIs"
+          "REST APIs"
         ],
         "summary": "Adds a memory episode to both episodic and profile memory.",
         "description": "This endpoint first retrieves the appropriate episodic memory instance based on the session context (group, agent, user, session IDs). It then adds the episode to the episodic memory. If successful, it also passes the message to the profile memory for ingestion.",
@@ -49,7 +49,7 @@
     "/search_memory": {
       "post": {
         "tags": [
-          "RPC APIs"
+          "REST APIs"
         ],
         "summary": "Searches for memories across both episodic and profile memory.",
         "description": "Retrieves the relevant episodic memory instance and then performs concurrent searches in both the episodic memory and the profile memory. The results are combined into a single response object.",
@@ -109,7 +109,7 @@
     "/sessions": {
       "get": {
         "tags": [
-          "RPC APIs"
+          "REST APIs"
         ],
         "summary": "Get all sessions.",
         "responses": {
@@ -129,7 +129,7 @@
     "/sessions/{user_id}": {
       "get": {
         "tags": [
-          "RPC APIs"
+          "REST APIs"
         ],
         "summary": "Get all sessions for a particular user.",
         "parameters": [
@@ -159,7 +159,7 @@
     "/sessions/{group_id}": {
       "get": {
         "tags": [
-          "RPC APIs"
+          "REST APIs"
         ],
         "summary": "Get all sessions for a particular group.",
         "parameters": [
@@ -189,7 +189,7 @@
     "/sessions/{agent_id}": {
       "get": {
         "tags": [
-          "RPC APIs"
+          "REST APIs"
         ],
         "summary": "Get all sessions for a particular agent.",
         "parameters": [
