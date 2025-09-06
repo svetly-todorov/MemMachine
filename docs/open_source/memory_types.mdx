@@ -55,10 +55,8 @@ Column   |           Type           | Collation | Nullable |             Default
  tag        | text                     |           | not null | 'Miscellaneous'::text
  feature    | text                     |           | not null | 
  value      | text                     |           | not null | 
- deleted    | integer                  |           | not null | 0
  create_at  | timestamp with time zone |           | not null | CURRENT_TIMESTAMP
  update_at  | timestamp with time zone |           | not null | CURRENT_TIMESTAMP
- delete_at  | timestamp with time zone |           |          | 
  embedding  | vector(1536)             |           | not null | 
  metadata   | jsonb                    |           | not null | '{}'::jsonb
  isolations | jsonb                    |           | not null | '{}'::jsonb
@@ -77,10 +75,8 @@ Here are the fields you'll find in this table:
 | tag       | A high-level categorization (e.g., "Preferences", "Skills", "Background"). |
 | feature   | An executive summary of the information (e.g., "likes_pizza", "programming_language") |
 | value     | Detailed content of the knowledge (e.g., "Margherita with extra cheese", "Python, JavaScript, Go") |
-| deleted   | Soft delete flag (0 = active, 1 = deleted) |
 | create_at | This is a timestamp for when the listing in the table was created. |
 | update_at | This is a timestamp for when the listing in the table was last updated. |
-| delete_at | This is a text field used for noting when the listing in the table was deleted. |
 | embedding | MemMachine creates a detailed 1536-trait numerical fingerprint for each memory, enabling smart, meaning-based searches to find the most relevant context. |
 | metadata  | A JSONB field for storing additional structured information about the knowledge entry. |
 | isolations | A JSONB field for storing isolation parameters, which can be used to restrict access to certain knowledge entries based on specific criteria. |
