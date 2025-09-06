@@ -1,0 +1,45 @@
+[build-system]
+requires = ["uv_build"]
+build-backend = "uv_build"
+
+[project]
+name = "memmachine"
+version = "0.1.0"
+dependencies = [
+    "asyncpg>=0.30.0",
+    "dotenv>=0.9.9",
+    "fastapi>=0.116.1",
+    "fastmcp>=2.12.0",
+    "neo4j>=5.28.2",
+    "nltk>=3.9.1",
+    "openai>=1.104.2",
+    "pgvector>=0.4.1",
+    "prometheus-client>=0.22.1",
+    "pydantic>=2.11.7",
+    "pyyaml>=6.0.2",
+    "rank-bm25>=0.2.2",
+    "sentence-transformers>=5.1.0",
+    "sqlalchemy>=2.0.43",
+    "uvicorn>=0.35.0",
+]
+requires-python = ">= 3.12"
+authors = [
+  {name="MemMachine", email="noreply@memmachine.ai"},
+]
+description = "MemMachine is an open-source memory layer for AI agents, giving your creations short-term, long-term, and personalization memory, enabling them to learn, adapt, and remember."
+readme = "README.md"
+keywords = ["memmachine"]
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Operating System :: OS Independent",
+]
+license = "Apache-2.0"
+license-files = ["LICENSE"]
+
+[project.scripts]
+memmachine-server = "server.app:main"
+memmachine-sync-profile-schema = "memmachine.profile_memory.storage.syncschema:main"
+
+[project.urls]
+Homepage = "https://github.com/MemMachine/MemMachine"
+Issues = "https://github.com/MemMachine/MemMachine/issues"
