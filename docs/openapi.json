@@ -83,7 +83,7 @@
     "/delete_data": {
       "post": {
         "tags": [
-          "RPC APIs"
+          "REST APIs"
         ],
         "summary": "Delete data for a particular session.",
         "requestBody": {
