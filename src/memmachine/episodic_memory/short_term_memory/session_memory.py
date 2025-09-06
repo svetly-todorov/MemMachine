@@ -188,7 +188,7 @@ class SessionMemory:
             result = await self._model.generate_response(
                 system_prompt=self._summary_system_prompt, user_prompt=msg
             )
-            self._summary = result
+            self._summary = result[0]
             logger.debug("Summary: %s\n", self._summary)
         except IOError as e:
             logger.info("IOError when create summary: %s", str(e))

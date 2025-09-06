@@ -267,7 +267,7 @@ async def search_memmachine(
 
 
 # === Route Handlers ===
-@app.post("/add_memory")
+@app.post("/memory")
 async def add_memory(episode: NewEpisode):
     """Adds a memory episode to both episodic and profile memory.
 
@@ -330,7 +330,7 @@ async def add_memory(episode: NewEpisode):
         )
 
 
-@app.post("/search_memory")
+@app.post("/memory/search")
 async def search_memory(q: SearchQuery) -> SearchResult:
     """Searches for memories across both episodic and profile memory.
 
@@ -386,8 +386,8 @@ async def search_memory(q: SearchQuery) -> SearchResult:
         )
 
 
-@app.post("/delete_data")
-async def delet_session_data(delete_req: DeleteDataRequest):
+@app.delete("/memory")
+async def delete_session_data(delete_req: DeleteDataRequest):
     """
     Delete data for a particular session
     """
