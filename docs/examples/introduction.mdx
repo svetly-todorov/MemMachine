@@ -6,34 +6,41 @@ icon: "medal"
 
 ## Test MemMachine in your Environment
 
-Ready to see MemMachine in action? Click any link below to grab the Docker images you need. You can download and deploy them straight into your own environment to quickly test MemMachine and explore how it shines in different use cases!
+Ready to see MemMachine in action? Click any link below to got directly to the [MemMachine Examples Repo](../../examples). You can download and deploy the following agents straight into your own environment to quickly test MemMachine and explore how it shines in different use cases!
 
-<Columns cols={2}>
+<Columns cols={3}>
   <Card
     title="Default Agent"
     icon="globe"
-    href="#"
+    href="http://https://github.com/MemMachine/MemMachine/tree/main/examples/agents/example_server.py"
   >
     General-purpose AI assistant for any chatbot
   </Card>
   <Card
     title="CRM Agent"
     icon="headset"
-    href="#"
+    href="http://https://github.com/MemMachine/MemMachine/tree/main/examples/agents/crm/"
   >
     An Agent targeting Customer Relationship Management
   </Card>
   <Card
     title="Financial Analyst Agent"
     icon="coins"
-    href="#"
+    href="http://https://github.com/MemMachine/MemMachine/tree/main/examples/agents/financial_analyst/"
   >
     Financial analysis and reporting
   </Card>
   <Card
+    title="Healthcare Agent"
+    icon="heart-pulse"
+    href="http://https://github.com/MemMachine/MemMachine/tree/main/examples/agents/health_assistant/"
+  >
+    Healthcare assistant for patient management
+  </Card>  
+  <Card
     title="Streamlit Frontend"
     icon="check"
-    href="#"
+    href="http://https://github.com/MemMachine/MemMachine/tree/main/examples/agents/frontend/"
   >
   Web-based testing interface for all agents
   </Card>
@@ -78,7 +85,54 @@ Getting started is a breeze! We'll just need to set up your local environment an
 
 Start MemMachine by either running the Python file or the Docker container. These example agents all use the REST API from MemMachine's `app.py`, but you can also integrate using the MCP server.
 
-Be sure to check out the [README file](../../examples/README.md) in the examples folder for more details on how make the most of our Example Agents.
+Be sure to check out the [README file](https://github.com/MemMachine/MemMachine/tree/main/examples/agents/README.md) in the examples folder for more details on how make the most of our Example Agents.
+
+<Accordion title="Complete .env file example">
+ For ease of management, instead of setting each environment variable individually in your terminal, you can create a `.env` file in the root directory of your project. This file will contain all the necessary environment variables for running the agents. Here's an example of what your `.env` file might look like:
+``` bash
+#memmachine required environment variables
+POSTGRES_HOST="10.0.0.59"
+POSTGRES_PORT="5432"
+POSTGRES_USER="postgres"
+POSTGRES_PASSWORD="strangehorsegreencoffee"
+POSTGRES_DB="your-postgres-db"
+PROFILE_DB="your-profile-db"
+
+MEMORY_CONFIG=/Users/charlieyi/Desktop/intelligent-memory/memmachine/src/cfg.yml
+
+LOG_LEVEL="DEBUG"
+LOG_FILE="test.txt"
+
+MODEL_ID="gpt-4.1-mini"
+OPENAI_API_KEY="your-api-key-here"
+
+NEO4J_USERNAME="your-username"
+NEO4J_PASSWORD="your-password"
+NEO4J_URI="bolt://localhost:7687"
+
+#example streamlit required environment variables
+MCP_BASE_URL=http://127.0.0.1:8080
+GATEWAY_URL=http://localhost:8080
+
+#example streamlit required environment variables
+#AWS_ACCESS_KEY_ID=ACCESS KEY
+#AWS_SECRET_ACCESS_KEY=YOUR SECRET ACCESS KEY
+#AWS_REGION=us-west-2
+#CLAUDE_MODEL_ID=anthropic.claude-3-7-sonnet-20250219-v1:0
+#CLAUDE_MODEL_ID=anthropic.claude-3-sonnet-20240229-v1:0
+#MODEL_API_KEY=bedrock
+
+
+
+# SLACK INTEGRATION FOR CRM
+SLACK_BOT_TOKEN=xoxb-your-slack-bot-token
+SLACK_SIGNING_SECRET=your-slack-signing-secret
+CRM_BACKEND_URL=http://localhost:8080
+CRM_CHANNEL_ID=optional for channel access restriction
+LOG_LEVEL=INFO
+CRM_AUTH_TOKEN=your-token
+```
+</Accordion>
 
 ### Available Agents
 We offer four available agents to choose from, each tailored to different use cases and functionalities. You can run any of these agents by executing their respective Python files. Each agent is designed to interact with the MemMachine backend for memory storage and retrieval.
@@ -169,6 +223,18 @@ Access the API:
 - **Financial:** `http://localhost:8000` (when running Financial server)
 - **Frontend:** `http://localhost:8502` (when running Streamlit app)
 
+<Note>
+**Using the CRM Agent in Slack**
+
+To enable Slack integration, you will need to install the `slack_sdk` library. You can do this by running the following command:
+```bash
+# pip install slack_sdk
+```
+You will also need to run the python slack server file found in our examples directory:
+```bash
+# python slack_server.py
+```
+</Note>
 ### Using the Streamlit Frontend for Testing
 
 The Streamlit frontend provides an interactive web interface for testing all agents and their memory capabilities.

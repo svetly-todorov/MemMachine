@@ -115,76 +115,122 @@ print(f"Search Results: {response.text}")
   </Tab>
   <Tab title="REST API">
     
-### Add a Memory 
+This guide provides simple "Hello World" examples for each of the core REST API endpoints. You can use these `cURL` commands directly in your terminal to quickly test the functionality of the MemMachine API.
 
-This call requires several parameters to identify the context of the memory, such as user_id, group_id, and episode_content.
+### 1. Add a Memory Episode (`POST /memory`)
 
-```Python
+This example demonstrates how to add a new memory episode to both the episodic and profile memory. You'll need to provide a `session` object, the `producer` and `produced_for` IDs, and the `episode_content`.
 
-import requests
-import json
+**Request:**
 
-# The REST API endpoint to add memory
-url = 'http://localhost:8080/add_memory'
-
-# The "Hello World" memory we want to add, along with context
-payload = {
-    'group_id': 'hello_world_group',
-    'agent_id': 'my_agent',
-    'user_id': 'user_001',
-    'session_id': 'session_001',
-    'producer': 'user',
-    'produced_for': 'my_agent',
-    'episode_content': 'Hello, MemMachine! This is my first memory using the REST API.',
-    'episode_type': 'conversation',
-    'metadata': {}
-}
-
-# Set up the headers
-headers = {
-    'Content-Type': 'application/json'
-}
-
-# Make the POST request
-response = requests.post(url, headers=headers, data=json.dumps(payload))
-
-# Print the response from the server
-print(f"Status Code: {response.status_code}")
-print(f"Response: {response.text}")
+```
+curl --request POST \
+  --url [https://memmachine.your-api-domain.com/memory](https://memmachine.your-api-domain.com/memory) \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "session": {
+      "user_id": ["test_user_1"],
+      "session_id": "session-12345"
+    },
+    "producer": "test_user_1",
+    "produced_for": "agent_1",
+    "episode_content": "Hello MemMachine, this is my first memory!",
+    "episode_type": "text"
+  }'
 ```
 
-### Search for a Memory
+**Expected Response:** A `200 OK` status with a confirmation that the memory episode was added successfully.
 
-Now that the text is in the system's memory, you can search for it using a POST request to the /search_memory endpoint. This call requires you to specify the query and some context IDs to narrow the search.
+### 2. Delete Session Data (`DELETE /memory`)
 
-```Python
-import requests
-import json
+This example shows how to delete all memory data associated with a specific session. This is useful for cleaning up after a testing session.
 
-# The REST API endpoint to search memory
-url = 'http://localhost:8080/search_memory'
+**Request:**
 
-# The query and context IDs to find our "Hello World" entry
-payload = {
-    'query': 'first memory using the REST API',
-    'limit': 5,
-    'group_id': 'hello_world_group',
-    'agent_id': ['my_agent'],
-    'user_id': ['user_001'],
-    'session_id': 'session_001'
-}
-
-# Set up the headers
-headers = {
-    'Content-Type': 'application/json'
-}
-
-# Make the POST request
-response = requests.post(url, headers=headers, data=json.dumps(payload))
-
-# Print the search results
-print(f"Status Code: {response.status_code}")
-print(f"Search Results: {response.text}")
 ```
+curl --request DELETE \
+  --url [https://memmachine.your-api-domain.com/memory](https://memmachine.your-api-domain.com/memory) \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "session": {
+      "session_id": "session-12345"
+    }
+  }'
+```
+
+**Expected Response:** A `200 OK` status indicating the data was successfully deleted.
+
+### 3. Search for Memories (`POST /memory/search`)
+
+Use this example to search for relevant memories within a session. The API will return results from both episodic and profile memory.
+
+**Request:**
+
+```
+curl --request POST \
+  --url [https://memmachine.your-api-domain.com/memory/search](https://memmachine.your-api-domain.com/memory/search) \
+  --header 'Content-Type: application/json' \
+  --data '{
+    "session": {
+      "user_id": ["test_user_1"],
+      "session_id": "session-12345"
+    },
+    "query": "what was my first message?"
+  }'
+```
+
+**Expected Response:** A `200 OK` status with a JSON object containing the search results.
+
+### 4. Get All Sessions (`GET /sessions`)
+
+This simple endpoint allows you to retrieve a list of all existing sessions in the system.
+
+**Request:**
+
+```
+curl --request GET \
+  --url [https://memmachine.your-api-domain.com/sessions](https://memmachine.your-api-domain.com/sessions)
+```
+
+**Expected Response:** A `200 OK` status with a JSON array of `MemorySession` objects.
+
+### 5. Get Sessions for a Specific User (`GET /sessions/{user_id}`)
+
+To filter sessions by a specific user, use this example by replacing `test_user_1` with your user's ID.
+
+**Request:**
+
+```
+curl --request GET \
+  --url [https://memmachine.your-api-domain.com/sessions/test_user_1](https://memmachine.your-api-domain.com/sessions/test_user_1)
+```
+
+**Expected Response:** A `200 OK` status with a JSON array of `MemorySession` objects associated with `test_user_1`.
+
+### 6. Get Sessions for a Specific Group (`GET /sessions/{group_id}`)
+
+Similarly, this endpoint lets you retrieve sessions belonging to a specific group. Replace `test_group_1` with your group's ID.
+
+**Request:**
+
+```
+curl --request GET \
+  --url [https://memmachine.your-api-domain.com/sessions/test_group_1](https://memmachine.your-api-domain.com/sessions/test_group_1)
+```
+
+**Expected Response:** A `200 OK` status with a JSON array of `MemorySession` objects associated with `test_group_1`.
+
+### 7. Get Sessions for a Specific Agent (`GET /sessions/{agent_id}`)
+
+This example shows how to retrieve sessions for a particular agent by replacing `test_agent_1` with the agent's ID.
+
+**Request:**
+
+```
+curl --request GET \
+  --url [https://memmachine.your-api-domain.com/sessions/test_agent_1](https://memmachine.your-api-domain.com/sessions/test_agent_1)
+```
+
+**Expected Response:** A `200 OK` status with a JSON array of `MemorySession` objects associated with `test_agent_1`.
   </Tab>
 </Tabs>
