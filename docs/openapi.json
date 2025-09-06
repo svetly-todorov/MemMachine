@@ -16,12 +16,12 @@
     }
   ],
   "paths": {
-    "/add_memory": {
+    "/memory": {
       "post": {
         "tags": [
           "REST APIs"
         ],
-        "summary": "Adds a memory episode to both episodic and profile memory.",
+        "summary": "/memory",
         "description": "This endpoint first retrieves the appropriate episodic memory instance based on the session context (group, agent, user, session IDs). It then adds the episode to the episodic memory. If successful, it also passes the message to the profile memory for ingestion.",
         "requestBody": {
           "required": true,
@@ -44,14 +44,38 @@
             "description": "No matching episodic memory instance found for the provided session context."
           }
         }
+      },
+      "delete": {
+        "tags": [
+          "REST APIs"
+        ],
+        "summary": "/memory",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteDataRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Data deleted successfully."
+          },
+          "404": {
+            "description": "No matching episodic memory instance found for the provided session context."
+          }
+        }
       }
     },
-    "/search_memory": {
+    "/memory/search": {
       "post": {
         "tags": [
           "REST APIs"
         ],
-        "summary": "Searches for memories across both episodic and profile memory.",
+        "summary": "/memory/search",
         "description": "Retrieves the relevant episodic memory instance and then performs concurrent searches in both the episodic memory and the profile memory. The results are combined into a single response object.",
         "requestBody": {
           "required": true,
@@ -80,38 +104,12 @@
         }
       }
     },
-    "/delete_data": {
-      "post": {
-        "tags": [
-          "REST APIs"
-        ],
-        "summary": "Delete data for a particular session.",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DeleteDataRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Data deleted successfully."
-          },
-          "404": {
-            "description": "No matching episodic memory instance found for the provided session context."
-          }
-        }
-      }
-    },
     "/sessions": {
       "get": {
         "tags": [
           "REST APIs"
         ],
-        "summary": "Get all sessions.",
+        "summary": "/sessions",
         "responses": {
           "200": {
             "description": "A list of all sessions.",
@@ -131,7 +129,8 @@
         "tags": [
           "REST APIs"
         ],
-        "summary": "Get all sessions for a particular user.",
+        "summary": "/sessions/{user_id}",
+         "description": "Get all sessions for a particular user.",
         "parameters": [
           {
             "name": "user_id",
@@ -161,7 +160,8 @@
         "tags": [
           "REST APIs"
         ],
-        "summary": "Get all sessions for a particular group.",
+        "summary": "/sessions/{group_id}",
+         "description": "Get all sessions for a particular group.",
         "parameters": [
           {
             "name": "group_id",
@@ -191,7 +191,8 @@
         "tags": [
           "REST APIs"
         ],
-        "summary": "Get all sessions for a particular agent.",
+        "summary": "/sessions/{agent_id}",
+         "description": "Get all sessions for a particular agent.",
         "parameters": [
           {
             "name": "agent_id",
@@ -221,7 +222,7 @@
         "tags": [
           "MCP APIs"
         ],
-        "summary": "Add memory to the memmachine memory system.",
+        "summary": "/llms/add_memmachine",
         "description": "This tool is designed to be called by LLMs to add a new memory episode to the system.",
         "requestBody": {
           "required": true,
@@ -282,7 +283,7 @@
         "tags": [
           "MCP APIs"
         ],
-        "summary": "Vector search for a memory in the memmachine memory system.",
+        "summary": "/llms/search_memmachine",
         "description": "This tool is designed to be called by LLMs to search for relevant memory context.",
         "requestBody": {
           "required": true,
