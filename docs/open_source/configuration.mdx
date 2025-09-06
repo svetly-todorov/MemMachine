@@ -5,6 +5,11 @@ icon: "gear"
 ---
 ## Configuring MemMachine
 
+MemMachine has two primary files that are required for operation:
+ - `config.yaml` - This file contains the configuration settings for MemMachine's Episodic Memory, including database connections, model settings, and memory parameters.
+ - `.env` - This file is used to store environment variables for the MemMachine Server Configuration, such as API keys and sensitive information that should not be hardcoded in the configuration file.
+
+### Episodic Memory Configuration (`config.yaml`)
 Understanding Configuration Settings
 You can customize your application's settings with two types of configuration: **Global** and **Local**.
  - **Global Configuration** acts as the ***default*** setting for all your applications. Think of it as your standard setup that everything uses unless told otherwise.  This file should reside in your Project root directory.
@@ -14,11 +19,11 @@ When a local configuration is present, it will take priority and override the gl
 
 You can set up both types of configuration using a YAML file.
 
-## Tailor MemMachine to Your Needs
+#### Tailor MemMachine to Your Needs
 
 Check out the following configuration options, an example of how to set, where to set, and a link to more information about the variable options.
 
-### Long-Term Memory
+#### Long-Term Memory
 
 Parameters that pertain to Long-Term memory settings.
 | Parameter                     | Required? | Default       | Description                                                  |
@@ -39,7 +44,7 @@ long_term_memory:
   vector_graph_store: my_storage_id
 ```
 
-### Session Memory
+#### Session Memory
 
 | Parameter                       | Required? | Default       | Description                                                  |
 | ------------------------------- | --------- | ------------- | ------------------------------------------------------------ |
@@ -57,7 +62,7 @@ sessionmemory:
   max_token_num: 8000
 ```
 
-### Sessiondb
+#### Sessiondb
 
 | Parameter                            | Required? | Default       | Description                                                  |
 | ------------------------------------ | --------- | ------------- | ------------------------------------------------------------ |
@@ -69,7 +74,7 @@ sessiondb:
   uri: sqlitetest.db
 ```
 
-### LLM Model
+#### LLM Model
 
 The LLM Model to be used with the memory system.
 
@@ -86,8 +91,7 @@ model:
     api_key: <YOUR_API_KEY>
 ```
 
-
-### Storage
+#### Storage
 
 The Storage database that can be chosen for our Memory to use. 
 <Note> Only graph database is supported at this time </Note>
@@ -111,7 +115,7 @@ storage:
     password: <YOUR_PASSWORD_HERE>
 ```
 
-### Embedder
+#### Embedder
 
 The Embedder model that we choose to use.
 | Parameter                            | Required? | Default       | Description                                                  |
@@ -130,7 +134,7 @@ embedder:
     api_key: <YOUR_API_KEY>
 ```
 
-### Reranker
+#### Reranker
 Parameters to set for the chosen Reranker
 | Parameter                            | Required? | Default       | Description                                                  |
 | ------------------------------------ | --------- | ------------- | ------------------------------------------------------------ |
@@ -154,9 +158,9 @@ reranker:
     model_name: "cross-encoder/qnli-electra-base"
 ```
 
-### Example Config.YAML File
+#### Example Config.YAML File
 
-Below is a complete example of a `Config.YAML` file that you can use for default settings when deploying MemMachine.  This example comes with the MemMachine package when downloading.
+Below is a complete example of the `Config.YAML` file that you can use for default settings when deploying MemMachine.  This example comes with the MemMachine package within the [`samples` directory](sample/episodic_memory_config.sample).
 
 ```YAML
 long_term_memory:
@@ -207,3 +211,61 @@ reranker:
     type: "cross-encoder"
     model_name: "cross-encoder/qnli-electra-base"
 ```
+
+### MemMachine Server Configuration (`.env`)
+
+To get the MemMachine Server up and running, we use a simple `.env` file to manage configuration settings. This approach keeps sensitive information—like database credentials and service URLs—separate from the core codebase. This guide explains each of the required variables.
+
+**File Location:**
+
+This file should be saved as `.env` and placed in the same directory as your `app.py` file.
+
+**Reference File:**
+
+```
+# This configuration file should be named as .env
+# It must be located under the same directory as the app.py
+POSTGRES_HOST="10.0.0.59"
+POSTGRES_PORT="5432"
+POSTGRES_USER="postgres"
+POSTGRES_PASS="YOUR PASSWORD"
+POSTGRES_DB="DBNAME"
+MCP_BASE_URL=[http://127.0.0.1:8080](http://127.0.0.1:8080)
+GATEWAY_URL=http://localhost:8080
+FAST_MCP_LOG_LEVEL=INFO
+MEMORY_CONFIG="Configuration file of memory"
+```
+
+#### Variable Definitions
+
+Here is a breakdown of each variable in your `.env` file:
+
+- **`POSTGRES_HOST`**
+  - **Purpose:** Specifies the network address (IP address or hostname) of your PostgreSQL database server.
+  - **Example:** `"10.0.0.59"` refers to a specific IP on your network.
+- **`POSTGRES_PORT`**
+  - **Purpose:** The port number on which the PostgreSQL server is listening for connections. The default port is `5432`.
+  - **Example:** `"5432"`
+- **`POSTGRES_USER`**
+  - **Purpose:** The username used to authenticate with the PostgreSQL database.
+  - **Example:** `"postgres"`
+- **`POSTGRES_PASS`**
+  - **Purpose:** The password for the specified PostgreSQL user. **Important:** Replace `"YOUR PASSWORD"` with your actual, secure password.
+  - **Example:** `"my_s3cr3t_p@ssw0rd"`
+- **`POSTGRES_DB`**
+  - **Purpose:** The name of the specific database you want to connect to on the PostgreSQL server.
+  - **Example:** `"memmachine_db"`
+- **`MCP_BASE_URL`**
+  - **Purpose:** The base URL for the Model Content Protocol (MCP) service. This is used for internal communication within your MemMachine services.
+  - **Example:** `"http://127.0.0.1:8080"` is a common local development address.
+- **`GATEWAY_URL`**
+  - **Purpose:** The URL for the public-facing gateway or reverse proxy that routes traffic to your API.
+  - **Example:** `"http://localhost:8080"`
+- **`FAST_MCP_LOG_LEVEL`**
+  - **Purpose:** Sets the logging level for the Fast MCP module. This controls the verbosity of the log output. Common levels include `INFO`, `DEBUG`, `WARNING`, `ERROR`, and `CRITICAL`.
+  - **Example:** `INFO` provides general information without excessive detail.
+- **`MEMORY_CONFIG`**
+  - **Purpose:** This variable should point to the file path of your memory configuration file, which defines how MemMachine's memory components are structured and initialized.
+  - **Example:** `"config/memory_config.yaml"`
+
+You can copy and paste to create your own `.env` file, making sure to replace placeholder values with your actual configuration details. It is also included in the MemMachine package within the [`samples` directory](sample/server_config.sample).
