@@ -481,7 +481,7 @@ class DeclarativeMemory:
     async def search(
         self,
         query: str,
-        num_episodes_request: int = 20,
+        num_episodes_limit: int = 20,
         isolation_properties: dict[str, IsolationPropertyValue] = {},
     ) -> list[Episode]:
         """
@@ -490,8 +490,8 @@ class DeclarativeMemory:
         Args:
             query (str):
                 The search query.
-            num_episodes_request (int, optional):
-                The requested minimum number
+            num_episodes_limit (int, optional):
+                The maximum number
                 of episodes to return (default: 20).
             isolation_properties (
                 dict[str, IsolationPropertyValue], optional
@@ -623,18 +623,30 @@ class DeclarativeMemory:
         )
 
         # Rerank contexts.
-        reranked_episode_node_contexts = (
-            await self._rerank_episode_node_contexts(
-                query, episode_node_contexts
-            )
+        episode_node_context_scores = await self._score_episode_node_contexts(
+            query, episode_node_contexts
         )
 
+        reranked_anchored_episode_node_contexts = [
+            (nuclear_episode_node, episode_node_context)
+            for _, nuclear_episode_node, episode_node_context in sorted(
+                zip(
+                    episode_node_context_scores,
+                    nuclear_episode_nodes,
+                    episode_node_contexts,
+                ),
+                key=lambda pair: pair[0],
+                reverse=True,
+            )
+        ]
+
         # Unify contexts.
-        unified_episode_node_context: set[Node] = set()
-        for episode_node_context in reranked_episode_node_contexts:
-            if len(unified_episode_node_context) >= num_episodes_request:
-                break
-            unified_episode_node_context.update(episode_node_context)
+        unified_episode_node_context = (
+            DeclarativeMemory._unify_anchored_episode_node_contexts(
+                reranked_anchored_episode_node_contexts,
+                num_episodes_limit=num_episodes_limit,
+            )
+        )
 
         # Return episodes sorted by timestamp.
         episodes = [
@@ -711,11 +723,11 @@ class DeclarativeMemory:
 
         return retrieved_context
 
-    async def _rerank_episode_node_contexts(
+    async def _score_episode_node_contexts(
         self, query: str, episode_node_contexts: list[set[Node]]
-    ) -> list[set[Node]]:
+    ) -> list[float]:
         """
-        Rerank episode node contexts
+        Score episode node contexts
         based on their relevance to the query.
         """
         episode_node_context_contents = [
@@ -736,22 +748,61 @@ class DeclarativeMemory:
             for episode_node_context in episode_node_contexts
         ]
 
-        episode_node_context_content_scores = await self._reranker.score(
+        episode_node_context_scores = await self._reranker.score(
             query, episode_node_context_contents
         )
 
-        reranked_episode_node_contexts = [
-            episode_node_context
-            for _, episode_node_context in sorted(
-                zip(
-                    episode_node_context_content_scores,
-                    episode_node_contexts,
-                ),
-                key=lambda pair: pair[0],
-                reverse=True,
-            )
-        ]
-        return reranked_episode_node_contexts
+        return episode_node_context_scores
+
+    @staticmethod
+    def _unify_anchored_episode_node_contexts(
+        anchored_episode_node_contexts: list[tuple[Node, set[Node]]],
+        num_episodes_limit: int,
+    ) -> set[Node]:
+        """
+        Unify episode node contexts
+        anchored on their nuclear episode nodes
+        into a single set of episode nodes,
+        respecting the episode limit.
+        """
+        unified_episode_node_context: set[Node] = set()
+
+        for nucleus, context in anchored_episode_node_contexts:
+            if (
+                len(unified_episode_node_context) + len(context)
+            ) <= num_episodes_limit:
+                # It is impossible that the context exceeds the limit.
+                unified_episode_node_context.update(context)
+            else:
+                # It is possible that the context exceeds the limit.
+                # Prioritize episodes near the nucleus.
+
+                # Sort context episodes by timestamp.
+                chronological_context = sorted(
+                    context,
+                    key=lambda node: cast(
+                        datetime,
+                        node.properties.get("timestamp", datetime.min),
+                    ),
+                )
+
+                # Sort chronological episodes by index-proximity to nucleus.
+                nucleus_index = chronological_context.index(nucleus)
+                nuclear_context = sorted(
+                    chronological_context,
+                    key=lambda node: abs(
+                        chronological_context.index(node) - nucleus_index
+                    ),
+                )
+
+                # Add episodes to unified context until limit is reached,
+                # or until the context is exhausted.
+                for episode_node in nuclear_context:
+                    if len(unified_episode_node_context) >= num_episodes_limit:
+                        return unified_episode_node_context
+                    unified_episode_node_context.add(episode_node)
+
+        return unified_episode_node_context
 
     async def forget_all(self):
         """
