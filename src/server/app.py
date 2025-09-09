@@ -303,7 +303,7 @@ async def mcp_close_memory_store(ctx: Context):
 async def mcp_add_memory(
     episode: EpisodeData,
     ctx: Context
-) -> tuple[int, str]:
+) -> dict[str, Any]:
     """MCP tool to add a memory episode to the current session.
 
     This tool requires an open memory session. It adds a new memory episode
@@ -319,7 +319,7 @@ async def mcp_add_memory(
     """
     sess = ctx.get_state("session_data")
     if sess is None:
-        return -1, "No session open"
+        return {"status": -1, "error_msg": "No session open"}
     data = NewEpisode(
         session=sess,
         producer=episode.producer,
@@ -335,12 +335,12 @@ async def mcp_add_memory(
                            {sess.user_id}-{sess.session_id}"""
         logger.error("Failed to add memory episode for %s", session_name)
         logger.error(e)
-        return -1, str(e)
-    return 0, ""
+        return {"status": -1, "error_msg": str(e)}
+    return {"status": 0, "error_msg": ""}
 
 
 @mcp.tool()
-async def mcp_add_session_memory(episode: NewEpisode) -> tuple[int, str]:
+async def mcp_add_session_memory(episode: NewEpisode) -> dict[str, Any]:
     """MCP tool to add a memory episode for a specific session.
 
     This tool does not require a pre-existing open session in the context.
@@ -363,8 +363,8 @@ async def mcp_add_session_memory(episode: NewEpisode) -> tuple[int, str]:
                            {sess.user_id}-{sess.session_id}"""
         logger.error("Failed to add memory episode for %s", session_name)
         logger.error(e)
-        return -1, str(e)
-    return 0, ""
+        return {"status": -1, "error_msg": str(e)}
+    return {"status": 0, "error_msg": ""}
 
 
 @mcp.tool()
@@ -385,7 +385,7 @@ async def mcp_search_memory(q: SearchRequest, ctx: Context) -> SearchResult:
     if sess is None:
         return SearchResult(
             status=-1,
-            content={"error": "No session open"}
+            content={"error_msg": "No session open"}
         )
     query = SearchQuery(
         session=sess,
@@ -413,7 +413,7 @@ async def mcp_search_session_memory(q: SearchQuery) -> SearchResult:
 
 
 @mcp.tool()
-async def mcp_delete_session_data(sess: SessionData) -> tuple[int, str]:
+async def mcp_delete_session_data(sess: SessionData) -> dict[str, Any]:
     """MCP tool to delete all data for a specific session.
 
     This tool does not require a pre-existing open session in the context.
@@ -434,12 +434,12 @@ async def mcp_delete_session_data(sess: SessionData) -> tuple[int, str]:
                            {sess.user_id}-{sess.session_id}"""
         logger.error("Failed to add memory episode for %s", session_name)
         logger.error(e)
-        return -1, str(e)
-    return 0, ""
+        return {"status": -1, "error_msg": str(e)}
+    return {"status": 0, "error_msg": ""}
 
 
 @mcp.tool()
-async def mcp_delete_data(ctx: Context) -> tuple[int, str]:
+async def mcp_delete_data(ctx: Context) -> dict[str, Any]:
     """MCP tool to delete all data for the current session.
 
     This tool requires an open memory session. It deletes all data associated
@@ -455,7 +455,7 @@ async def mcp_delete_data(ctx: Context) -> tuple[int, str]:
     try:
         sess = ctx.get_state("session_data")
         if sess is None:
-            return -1, "No session open"
+            return {"status": -1, "error_msg": "No session open"}
         delete_data_req = DeleteDataRequest(session=sess)
         await delete_session_data(delete_data_req)
     except HTTPException as e:
@@ -463,8 +463,8 @@ async def mcp_delete_data(ctx: Context) -> tuple[int, str]:
                            {sess.user_id}-{sess.session_id}"""
         logger.error("Failed to add memory episode for %s", session_name)
         logger.error(e)
-        return -1, str(e)
-    return 0, ""
+        return {"status": -1, "error_msg": str(e)}
+    return {"status": 0, "error_msg": ""}
 
 
 @mcp.resource("sessions://sessions")
@@ -474,7 +474,7 @@ async def mcp_get_sessions() -> AllSessionsResponse:
     Returns:
         An AllSessionsResponse containing a list of all sessions.
     """
-    return get_all_sessions()
+    return await get_all_sessions()
 
 
 @mcp.resource("users://{user_id}/sessions")
@@ -484,7 +484,7 @@ async def mcp_get_user_sessions(user_id: str) -> AllSessionsResponse:
     Returns:
         An AllSessionsResponse containing a list of sessions for the user.
     """
-    return get_sessions_for_user(user_id)
+    return await get_sessions_for_user(user_id)
 
 
 @mcp.resource("groups://{group_id}/sessions")
@@ -494,7 +494,7 @@ async def mcp_get_group_sessions(group_id: str) -> AllSessionsResponse:
     Returns:
         An AllSessionsResponse containing a list of sessions for the group.
     """
-    return get_sessions_for_group(group_id)
+    return await get_sessions_for_group(group_id)
 
 
 @mcp.resource("agents://{agent_id}/sessions")
@@ -504,7 +504,7 @@ async def mcp_get_agent_sessions(agent_id: str) -> AllSessionsResponse:
     Returns:
         An AllSessionsResponse containing a list of sessions for the agent.
     """
-    return get_sessions_for_agent(agent_id)
+    return await get_sessions_for_agent(agent_id)
 
 
 # === Route Handlers ===
