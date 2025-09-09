@@ -43,6 +43,8 @@ from memmachine.profile_memory.profile_memory import ProfileMemory
 
 
 logger = logging.getLogger(__name__)
+
+
 # Request session data
 class SessionData(BaseModel):
     """Request model for session information."""
@@ -94,7 +96,7 @@ class SearchQuery(BaseModel):
 # === Response Models ===
 class SearchResult(BaseModel):
     """Response model for memory search results."""
-
+    status: int = 0
     content: dict[str, Any]
 
 
@@ -247,8 +249,8 @@ app.add_route("/metrics", make_asgi_app())
 
 
 @mcp.tool()
-async def mcp_open_memory(sess: SessionData, ctx: Context):
-    """MCP tool to create and open a memory session.
+async def mcp_open_memory_store(sess: SessionData, ctx: Context):
+    """MCP tool to create and open a memory store.
 
     This tool establishes a session context for subsequent MCP tool calls.
     The session data is stored in the MCP context state.
@@ -258,15 +260,22 @@ async def mcp_open_memory(sess: SessionData, ctx: Context):
         ctx: The MCP context.
 
     Returns:
-        True if the session was successfully opened.
+        No return value.
     """
+    old_sess = ctx.get_state("session_data")
+    if old_sess is not None:
+        await episodic_memory.close_episodic_memory_instance(
+            group_id=old_sess.group_id,
+            agent_id=old_sess.agent_id,
+            user_id=old_sess.user_id,
+            session_id=old_sess.session_id,
+        )
     ctx.set_state("session_data", sess)
-    return True
 
 
 @mcp.tool()
-async def mcp_close_memory(ctx: Context):
-    """MCP tool to close the currently open memory session.
+async def mcp_close_memory_store(ctx: Context):
+    """MCP tool to close the currently open memory store.
 
     This tool retrieves the session data from the MCP context, closes the
     corresponding episodic memory instance, and clears the session from the
@@ -276,11 +285,11 @@ async def mcp_close_memory(ctx: Context):
         ctx: The MCP context.
 
     Returns:
-        True if the session was closed successfully, False otherwise.
+        No return value.
     """
     sess = ctx.get_state("session_data")
     if sess is None:
-        return False
+        return
     await episodic_memory.close_episodic_memory_instance(
         group_id=sess.group_id,
         agent_id=sess.agent_id,
@@ -288,11 +297,13 @@ async def mcp_close_memory(ctx: Context):
         session_id=sess.session_id,
     )
     ctx.set_state("session_data", None)
-    return True
 
 
 @mcp.tool()
-async def mcp_add_memory(episode: EpisodeData, ctx: Context):
+async def mcp_add_memory(
+    episode: EpisodeData,
+    ctx: Context
+) -> tuple[int, str]:
     """MCP tool to add a memory episode to the current session.
 
     This tool requires an open memory session. It adds a new memory episode
@@ -303,11 +314,12 @@ async def mcp_add_memory(episode: EpisodeData, ctx: Context):
         ctx: The MCP context.
 
     Returns:
-        True if the memory was added successfully, False otherwise.
+        Status 0 if the memory was added successfully, -1 otherwise with
+        error message.
     """
     sess = ctx.get_state("session_data")
     if sess is None:
-        return False
+        return -1, "No session open"
     data = NewEpisode(
         session=sess,
         producer=episode.producer,
@@ -319,13 +331,16 @@ async def mcp_add_memory(episode: EpisodeData, ctx: Context):
     try:
         await add_memory(data)
     except HTTPException as e:
+        session_name = f"""{sess.group_id}-{sess.agent_id}-
+                           {sess.user_id}-{sess.session_id}"""
+        logger.error("Failed to add memory episode for %s", session_name)
         logger.error(e)
-        return False
-    return True
+        return -1, str(e)
+    return 0, ""
 
 
 @mcp.tool()
-async def mcp_add_session_memory(episode: NewEpisode):
+async def mcp_add_session_memory(episode: NewEpisode) -> tuple[int, str]:
     """MCP tool to add a memory episode for a specific session.
 
     This tool does not require a pre-existing open session in the context.
@@ -337,18 +352,23 @@ async def mcp_add_session_memory(episode: NewEpisode):
         ctx: The MCP context (unused).
 
     Returns:
-        True if the memory was added successfully, False otherwise.
+        Status 0 if the memory was added successfully, Status -1 otherwise
+        with error message.
     """
     try:
         await add_memory(episode)
     except HTTPException as e:
+        sess = episode.session
+        session_name = f"""{sess.group_id}-{sess.agent_id}-
+                           {sess.user_id}-{sess.session_id}"""
+        logger.error("Failed to add memory episode for %s", session_name)
         logger.error(e)
-        return False
-    return True
+        return -1, str(e)
+    return 0, ""
 
 
 @mcp.tool()
-async def mcp_search_memory(q: SearchRequest, ctx: Context):
+async def mcp_search_memory(q: SearchRequest, ctx: Context) -> SearchResult:
     """MCP tool to search for memories in the current session.
 
     This tool requires an open memory session. It searches both episodic and
@@ -363,7 +383,10 @@ async def mcp_search_memory(q: SearchRequest, ctx: Context):
     """
     sess = ctx.get_state("session_data")
     if sess is None:
-        return None
+        return SearchResult(
+            status=-1,
+            content={"error": "No session open"}
+        )
     query = SearchQuery(
         session=sess,
         query=q.query,
@@ -374,7 +397,23 @@ async def mcp_search_memory(q: SearchRequest, ctx: Context):
 
 
 @mcp.tool()
-async def mcp_delete_session_data(sess: SessionData):
+async def mcp_search_session_memory(q: SearchQuery) -> SearchResult:
+    """MCP tool to search for memories in a specific session.
+
+    This tool does not require a pre-existing open session in the context.
+    It searches both episodic and profile memories for the provided query.
+
+    Args:
+        q: The search query.
+
+    Return:
+        A SearchResult object if successful, None otherwise.
+    """
+    return await search_memory(q)
+
+
+@mcp.tool()
+async def mcp_delete_session_data(sess: SessionData) -> tuple[int, str]:
     """MCP tool to delete all data for a specific session.
 
     This tool does not require a pre-existing open session in the context.
@@ -385,18 +424,22 @@ async def mcp_delete_session_data(sess: SessionData):
         ctx: The MCP context (unused).
 
     Returns:
-        True if deletion was successful, False otherwise.
+        Status 0 if deletion was successful, Status -1 otherwise
+        with error message.
     """
     try:
         await delete_session_data(DeleteDataRequest(session=sess))
     except HTTPException as e:
+        session_name = f"""{sess.group_id}-{sess.agent_id}-
+                           {sess.user_id}-{sess.session_id}"""
+        logger.error("Failed to add memory episode for %s", session_name)
         logger.error(e)
-        return False
-    return True
+        return -1, str(e)
+    return 0, ""
 
 
 @mcp.tool()
-async def mcp_delete_data(ctx: Context):
+async def mcp_delete_data(ctx: Context) -> tuple[int, str]:
     """MCP tool to delete all data for the current session.
 
     This tool requires an open memory session. It deletes all data associated
@@ -406,22 +449,26 @@ async def mcp_delete_data(ctx: Context):
         ctx: The MCP context.
 
     Returns:
-        True if deletion was successful, False otherwise.
+        Status 0 if deletion was successful, Sttus -1 otherwise
+        with error message.
     """
     try:
         sess = ctx.get_state("session_data")
         if sess is None:
-            return False
+            return -1, "No session open"
         delete_data_req = DeleteDataRequest(session=sess)
         await delete_session_data(delete_data_req)
     except HTTPException as e:
+        session_name = f"""{sess.group_id}-{sess.agent_id}-
+                           {sess.user_id}-{sess.session_id}"""
+        logger.error("Failed to add memory episode for %s", session_name)
         logger.error(e)
-        return False
-    return True
+        return -1, str(e)
+    return 0, ""
 
 
 @mcp.resource("sessions://sessions")
-async def mcp_get_sessions():
+async def mcp_get_sessions() -> AllSessionsResponse:
     """MCP resource to retrieve all memory sessions.
 
     Returns:
@@ -431,7 +478,7 @@ async def mcp_get_sessions():
 
 
 @mcp.resource("users://{user_id}/sessions")
-async def mcp_get_user_sessions(user_id: str):
+async def mcp_get_user_sessions(user_id: str) -> AllSessionsResponse:
     """MCP resource to retrieve all sessions for a specific user.
 
     Returns:
@@ -441,7 +488,7 @@ async def mcp_get_user_sessions(user_id: str):
 
 
 @mcp.resource("groups://{group_id}/sessions")
-async def mcp_get_group_sessions(group_id: str):
+async def mcp_get_group_sessions(group_id: str) -> AllSessionsResponse:
     """MCP resource to retrieve all sessions for a specific group.
 
     Returns:
@@ -451,7 +498,7 @@ async def mcp_get_group_sessions(group_id: str):
 
 
 @mcp.resource("agents://{agent_id}/sessions")
-async def mcp_get_agent_sessions(agent_id: str):
+async def mcp_get_agent_sessions(agent_id: str) -> AllSessionsResponse:
     """MCP resource to retrieve all sessions for a specific agent.
 
     Returns:
