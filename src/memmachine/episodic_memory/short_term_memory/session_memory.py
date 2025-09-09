@@ -196,7 +196,10 @@ class SessionMemory:
             logger.info("ValueError when create summary: %s", str(e))
 
     async def get_session_memory_context(
-        self, query, max_token_num: int = 0
+        self,
+        query,
+        limit: int = 0,
+        max_token_num: int = 0
     ) -> tuple[list[Episode], str]:
         """
         Retrieves context from short-term memory for a given query.
@@ -216,9 +219,11 @@ class SessionMemory:
                 if self._summary is not None
                 else 0
             )
-            episodes = []
+            episodes: list[Episode] = []
             for e in self._memory:
                 if length >= max_token_num > 0:
+                    break
+                if len(episodes) > limit > 0:
                     break
                 episodes.append(e)
                 length += self._compute_token_num(e.content)
