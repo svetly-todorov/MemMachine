@@ -315,7 +315,13 @@ class AsyncPgProfileStorage:
                 'value', p.value,
                 'metadata', JSON_BUILD_OBJECT(
                     'id', p.id,
-                    'similarity_score', ROUND((-(p.embedding <#> $1::vector))::numeric, 6)
+                    'similarity_score', (-(p.embedding <#> $1::vector)),
+                    'citations', COALESCE((
+                        SELECT JSON_AGG(h.content)
+                        FROM {AsyncPgProfileStorage.junction_table} j
+                        JOIN {AsyncPgProfileStorage.history_table} h ON j.content_id = h.id
+                        WHERE p.id = j.profile_id
+                    ), '[]'::json)
                 )
             )
             FROM {AsyncPgProfileStorage.main_table} p
@@ -423,9 +429,7 @@ class AsyncPgProfileStorage:
         """
         assert self._pool is not None
         async with self._pool.acquire() as conn:
-            await conn.execute(
-                query, user_id, start_time, json.dumps(isolations)
-            )
+            await conn.execute(query, user_id, start_time, json.dumps(isolations))
 
     async def cleanup(self):
         await self._pool.close()
