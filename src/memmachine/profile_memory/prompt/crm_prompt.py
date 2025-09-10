@@ -4,7 +4,8 @@ Handles company profiles with direct feature/value pairs
 """
 
 from datetime import datetime
-import zoneinfo, json
+import zoneinfo
+import json
 
 # -----------------------
 # QUICK ACCESS TO MAIN CONFIG

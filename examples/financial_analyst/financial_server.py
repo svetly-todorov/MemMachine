@@ -1,7 +1,7 @@
 import os
 import requests
 from datetime import datetime
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from query_constructor import FinancialAnalystQueryConstructor
 
 MEMORY_BACKEND_URL = os.getenv("MEMORY_BACKEND_URL", "http://localhost:8080")
@@ -23,7 +23,7 @@ async def store_data(user_id: str, query: str):
         }
 
         episode_data = {
-            "session": session_data,"
+            "session": session_data,
             "producer": user_id,
             "produced_for": "assistant",
             "episode_content": query,
