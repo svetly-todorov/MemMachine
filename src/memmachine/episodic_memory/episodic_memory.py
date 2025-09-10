@@ -294,10 +294,7 @@ class EpisodicMemory:
         async with self._lock:
             # Concurrently search both memory stores
             session_result, long_episode = await asyncio.gather(
-                self._session_memory.get_session_memory_context(
-                    query,
-                    limit=search_limit
-                ),
+                self._session_memory.get_session_memory_context(query),
                 self._long_term_memory.search(
                     query, search_limit, property_filter
                 ),
@@ -318,6 +315,9 @@ class EpisodicMemory:
         # Combine the lists
         combined_episodes = short_episode + unique_long_episodes
 
+        # Apply the final limit if specified
+        if limit is not None and len(combined_episodes) > limit:
+            combined_episodes = combined_episodes[:limit]
         end_time = datetime.now()
         delta = end_time - start_time
         self._query_latency_summary.observe(
