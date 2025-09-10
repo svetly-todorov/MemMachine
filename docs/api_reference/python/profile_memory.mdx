@@ -1,0 +1,132 @@
+---
+title: "Profile Memory" 
+description: "The ProfileMemory module and class provides a high-level interface for creating and managing profile memory." 
+icon: "user"
+---
+
+`ProfileMemory` is the central brain behind your user profiles. It's a smart, self-contained component that listens to a user's conversation history and builds a detailed, searchable profile from it. Think of it as a helpful assistant that remembers all the important details about a user for you.
+
+At its core, `ProfileMemory` uses advanced language models to intelligently extract and organize profile information. It stores this data, along with searchable vector embeddings, in a database. This allows for super-fast, high-quality searches that go beyond simple keywords.
+
+## How It Works
+
+The magic of `ProfileMemory` lies in its ability to:
+
+- **Ingest messages:** It takes in new messages and learns from them, continuously updating a user's profile.
+- **Consolidate and simplify:** To keep profiles accurate and easy to manage, it intelligently combines similar information and removes redundant entries.
+- **Search efficiently:** It allows you to perform semantic searches, which find relevant information even if the exact words aren't used.
+- **Cache for speed:** It keeps frequently used profiles handy in a cache so you get faster results when you need them.
+
+## `ProfileMemory` Methods
+
+Here's a breakdown of the key methods you'll use to interact with `ProfileMemory`.
+
+### `startup()`
+
+**What it does:** This is the first method you'll call. It gets `ProfileMemory` up and running by initializing all the necessary resources, like the database connection.
+
+```
+await profile_memory_instance.startup()
+```
+
+### **`cleanup()`**
+
+**What it does:** This method gracefully shuts down the `ProfileMemory` instance by closing resources, like the database connection pool, when you're finished.
+
+```
+await profile_memory_instance.cleanup()
+```
+
+### **`get_user_profile()`**
+
+**What it does:** This method retrieves a user's entire profile. For better performance, it first checks a cache before looking up the data in the database.
+
+- `user_id`: The ID of the user whose profile you want to retrieve.
+- `isolations`: (Optional) A dictionary for data isolation, allowing you to get a specific subset of the profile.
+
+```
+profile = await profile_memory_instance.get_user_profile(user_id="user_123")
+```
+
+### `add_new_profile()`
+
+**What it does:** Use this method to manually add a new piece of information (a "feature") to a user's profile. This is useful for adding foundational information that isn't learned from a conversation.
+
+- `user_id`: The ID of the user.
+- `feature`: The name of the profile feature (e.g., "hobbies").
+- `value`: The value for the feature (e.g., "hiking").
+- `tag`: A category for the feature (e.g., "leisure").
+
+```
+await profile_memory_instance.add_new_profile(
+    user_id="user_123",
+    feature="location",
+    value="Colorado",
+    tag="demographics"
+)
+```
+
+### `semantic_search()`
+
+**What it does:** This powerful method allows you to search a user's profile for specific information. It's a "semantic" search, which means it understands the *meaning* of your query, not just the exact words.
+
+- `user_id`: The ID of the user you are searching.
+- `query`: The search query (e.g., "Where does the user live?").
+
+```
+results = await profile_memory_instance.semantic_search(
+    user_id="user_123",
+    query="what are they interested in?"
+)
+```
+
+### `add_persona_message()`
+
+**What it does:** This is the core ingestion method. You send it a message, and `ProfileMemory` adds it to the user's conversation history. Periodically, it will use these new messages to automatically update and consolidate the user's profile.
+
+- `user_id`: The ID of the user.
+- `content`: The message content.
+- `metadata`: (Optional) Metadata for the message (e.g., who said it).
+
+```
+await profile_memory_instance.add_persona_message(
+    user_id="user_123",
+    content="I love to go hiking on weekends.",
+    metadata={"speaker": "user"}
+)
+```
+
+### `delete_user_profile()`
+
+**What it does:** Deletes an entire user profile.
+
+- `user_id`: The ID of the user whose profile will be deleted.
+
+```
+await profile_memory_instance.delete_user_profile(user_id="user_123")
+```
+
+### `delete_user_profile_feature()`
+
+**What it does:** Deletes a specific feature from a user's profile.
+
+- `user_id`: The ID of the user.
+- `feature`: The feature to delete (e.g., "hobbies").
+- `tag`: The tag of the feature to delete (e.g., "leisure").
+- `value`: (Optional) The specific value to delete. If this is not provided, all values for that feature and tag are deleted.
+
+```
+await profile_memory_instance.delete_user_profile_feature(
+    user_id="user_123",
+    feature="location",
+    tag="demographics"
+)
+```
+
+### `delete_all()`
+
+**What it does:** Use this method with caution! It completely wipes all user profiles from the database and clears the cache. This is typically used for development and testing.
+
+```
+await profile_memory_instance.delete_all()
+```
