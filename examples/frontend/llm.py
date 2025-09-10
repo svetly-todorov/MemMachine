@@ -61,7 +61,6 @@ def chat(messages, persona):
 
         text = out.output_text.strip()  # out.choices[0].message.content.strip()
 
-        usage = out.usage
         tok_out = out.usage.output_tokens
         tok_in = out.usage.input_tokens
         total_tok = (

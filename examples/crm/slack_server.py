@@ -149,7 +149,7 @@ async def process_memory_post(
     """
     logger.debug(f"[SLACK] Processing message from user {user}")
 
-    author_name = (
+    (
         await slack_service.get_user_display_name(user) if user else (user or "")
     )
 
@@ -194,7 +194,7 @@ async def process_query_and_reply(
     """Handle *Q queries by searching memory and using OpenAI chat completion"""
     logger.info(f"[SLACK] Processing query from user {user}: {query_text[:50]}...")
 
-    author_name = (
+    (
         await slack_service.get_user_display_name(user) if user else (user or "")
     )
 
