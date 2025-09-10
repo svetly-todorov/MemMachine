@@ -1,6 +1,11 @@
-import os, hmac, hashlib, time, asyncio, logging, uvicorn
+import os
+import hmac
+import hashlib
+import time
+import asyncio
+import logging
+import uvicorn
 from typing import Optional
-from datetime import datetime
 
 import httpx
 from fastapi import APIRouter, Request, Header, HTTPException, FastAPI
@@ -319,10 +324,10 @@ async def main():
     config = uvicorn.Config(app, host="0.0.0.0", port=8001)
     server = uvicorn.Server(config)
 
-    print(f"\nStarting Slack server on port 8001...")
-    print(f"Server ready for real-time messages!")
+    print("\nStarting Slack server on port 8001...")
+    print("Server ready for real-time messages!")
     print(f"\n{'='*50}")
-    print(f"HISTORICAL INGESTION")
+    print("HISTORICAL INGESTION")
     print(f"{'='*50}")
     print(f"Processing {message_limit} messages per channel...")
     print(f"{'='*50}")
@@ -378,7 +383,7 @@ async def ingest_historical_messages_with_limit(message_limit: int):
             channel_name = channel.get("name", "unknown")
             print(f"  {i}. #{channel_name}")
 
-        print(f"\nProcessing messages...")
+        print("\nProcessing messages...")
 
         for channel in channels:
             channel_id = channel.get("id")
@@ -428,7 +433,7 @@ async def ingest_historical_messages_with_limit(message_limit: int):
 
         counters = get_counter_status()
         print(f"\n{'='*50}")
-        print(f"INGESTION COMPLETE")
+        print("INGESTION COMPLETE")
         print(f"{'='*50}")
         print(
             f"Total: {counters['processed']} processed, {counters['skipped']} skipped"

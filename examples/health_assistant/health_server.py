@@ -1,7 +1,7 @@
 import os
 import requests
 from datetime import datetime
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from query_constructor import HealthAssistantQueryConstructor
 
 # Configuration

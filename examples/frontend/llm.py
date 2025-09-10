@@ -5,7 +5,6 @@ import openai
 import boto3
 from model_config import MODEL_TO_PROVIDER
 from dotenv import load_dotenv
-from gateway_client import ingest_and_rewrite
 
 # ──────────────────────────────────────────────────────────────
 # Load environment variables

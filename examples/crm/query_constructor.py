@@ -3,8 +3,11 @@ CRM Query Constructor for agent query prompt for Intelligent Memory System
 Optimized for text rendering in Slack with structured prompt templates
 """
 
-from typing import Optional, Dict, Any, Union
-import logging, sys, os, json
+from typing import Optional
+import logging
+import sys
+import os
+import json
 from datetime import datetime
 
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))

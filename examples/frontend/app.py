@@ -1,4 +1,3 @@
-import os
 import streamlit as st
 from llm import chat, set_model
 from gateway_client import ingest_and_rewrite, delete_profile

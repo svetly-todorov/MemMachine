@@ -1,4 +1,5 @@
-import os, requests, json
+import os
+import requests
 from datetime import datetime
 
 CRM_SERVER_URL = os.getenv("CRM_SERVER_URL", "http://localhost:8000")

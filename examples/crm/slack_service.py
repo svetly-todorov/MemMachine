@@ -37,7 +37,7 @@ class SlackService:
                 f"[SLACK] users.info failed: {e.response['error'] if hasattr(e, 'response') else str(e)}"
             )
             return user_id
-        except Exception as e:
+        except Exception:
             logger.exception("[SLACK] users.info unexpected error")
             return user_id
 
@@ -57,7 +57,7 @@ class SlackService:
                 f"[SLACK] chat.postMessage failed: {e.response['error'] if hasattr(e, 'response') else str(e)}"
             )
             return None
-        except Exception as e:
+        except Exception:
             logger.exception("[SLACK] chat.postMessage unexpected error")
             return None
 
@@ -103,7 +103,7 @@ class SlackService:
                 f"[SLACK] conversations.history failed: {e.response['error'] if hasattr(e, 'response') else str(e)}"
             )
             return []
-        except Exception as e:
+        except Exception:
             logger.exception("[SLACK] conversations.history unexpected error")
             return []
 
@@ -144,6 +144,6 @@ class SlackService:
                 f"[SLACK] conversations.list failed: {e.response['error'] if hasattr(e, 'response') else str(e)}"
             )
             return []
-        except Exception as e:
+        except Exception:
             logger.exception("[SLACK] conversations.list unexpected error")
             return []

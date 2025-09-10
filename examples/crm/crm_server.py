@@ -2,8 +2,7 @@ import os
 import requests
 import asyncpg
 from datetime import datetime
-from fastapi import FastAPI, Query
-from typing import Optional
+from fastapi import FastAPI
 from dotenv import load_dotenv
 from .query_constructor import CRMQueryConstructor
 
