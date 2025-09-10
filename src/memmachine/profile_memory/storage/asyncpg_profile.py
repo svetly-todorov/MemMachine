@@ -315,13 +315,7 @@ class AsyncPgProfileStorage:
                 'value', p.value,
                 'metadata', JSON_BUILD_OBJECT(
                     'id', p.id,
-                    'similarity_score', (-(p.embedding <#> $1::vector)),
-                    'citations', COALESCE((
-                        SELECT JSON_AGG(h.content)
-                        FROM {AsyncPgProfileStorage.junction_table} j
-                        JOIN {AsyncPgProfileStorage.history_table} h ON j.content_id = h.id
-                        WHERE p.id = j.profile_id
-                    ), '[]'::json)
+                    'similarity_score', ROUND((-(p.embedding <#> $1::vector))::numeric, 6)
                 )
             )
             FROM {AsyncPgProfileStorage.main_table} p

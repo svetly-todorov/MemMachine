@@ -3,15 +3,16 @@ import logging
 from datetime import datetime
 import sys
 import os
+
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from base_query_constructor import BaseQueryConstructor
 
 logger = logging.getLogger(__name__)
 
+
 class HealthAssistantQueryConstructor(BaseQueryConstructor):
     def __init__(self):
-        self.prompt_template = (
-'''
+        self.prompt_template = """
 You are a helpful health and wellness assistant. Use the provided context and profile information to answer the user's question accurately and helpfully.
 
 <CURRENT_DATE>
@@ -56,15 +57,10 @@ Response Format:
 <USER_QUERY>
 {query}
 </USER_QUERY>
-'''
-        )
-        
+"""
 
     def create_query(
-        self,         
-        profile: Optional[str],
-        context: Optional[str],
-        query: str
+        self, profile: Optional[str], context: Optional[str], query: str
     ) -> str:
         """Create a health assistant query using the prompt template"""
         if not query or not query.strip():
@@ -78,7 +74,7 @@ Response Format:
                 current_date=current_date,
                 profile=profile_str,
                 context_block=context_block,
-                query=query
+                query=query,
             )
         except Exception as e:
             logger.error(f"Error creating health assistant query: {e}")
