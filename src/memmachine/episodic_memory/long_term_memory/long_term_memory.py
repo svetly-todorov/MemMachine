@@ -242,7 +242,7 @@ class LongTermMemory:
     ):
         declarative_memory_episodes = await self._declarative_memory.search(
             query,
-            num_episodes_request=num_episodes_limit,
+            num_episodes_limit=num_episodes_limit,
             isolation_properties=id_filter,
         )
         return [
@@ -275,7 +275,7 @@ class LongTermMemory:
                 user_metadata=declarative_memory_episode.user_metadata,
             )
             for declarative_memory_episode in declarative_memory_episodes
-        ][-num_episodes_limit:]
+        ]
 
     async def clear(self):
         self._declarative_memory.forget_all()
