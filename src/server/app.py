@@ -14,7 +14,6 @@ import asyncio
 import os
 from contextlib import asynccontextmanager
 from importlib import import_module
-from pathlib import Path
 from typing import Any
 
 import uvicorn
@@ -121,7 +120,7 @@ async def http_app_lifespan(application: FastAPI):
     config_file = os.getenv("MEMORY_CONFIG", "cfg.yml")
     try:
         yaml_config = yaml.safe_load(
-            open(Path(__file__).parent / config_file, encoding="utf-8")
+            open(config_file, encoding="utf-8")
         )
     except Exception as e:
         raise e
