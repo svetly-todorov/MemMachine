@@ -223,7 +223,7 @@ class SessionMemory:
             for e in self._memory:
                 if length >= max_token_num > 0:
                     break
-                if len(episodes) > limit > 0:
+                if len(episodes) >= limit > 0:
                     break
                 episodes.append(e)
                 length += self._compute_token_num(e.content)

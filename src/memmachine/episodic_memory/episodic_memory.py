@@ -266,7 +266,7 @@ class EpisodicMemory:
         query: str,
         limit: int | None = None,
         property_filter: dict | None = None,
-    ) -> tuple[list[Episode], list[str]]:
+    ) -> tuple[list[Episode], list[Episode], list[str]]:
         """
         Retrieves relevant context for a given query from all memory stores.
 
@@ -281,7 +281,8 @@ class EpisodicMemory:
                     declarative memory.
 
         Returns:
-            A tuple containing a list of relevant Episode objects and a
+            A tuple containing a list of short term memory Episode objects,
+            a list of long term memory Episode objects, and a
             list of summary strings.
         """
         start_time = datetime.now()
@@ -315,16 +316,13 @@ class EpisodicMemory:
                 uuid_set.add(episode.uuid)
                 unique_long_episodes.append(episode)
 
-        # Combine the lists
-        combined_episodes = short_episode + unique_long_episodes
-
         end_time = datetime.now()
         delta = end_time - start_time
         self._query_latency_summary.observe(
             delta.total_seconds() * 1000 + delta.microseconds / 1000
         )
         self._query_counter.increment()
-        return combined_episodes, [short_summary]
+        return short_episode, unique_long_episodes, [short_summary]
 
     async def formalize_query_with_context(
         self,
