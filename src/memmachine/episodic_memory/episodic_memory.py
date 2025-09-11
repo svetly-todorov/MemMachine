@@ -276,7 +276,9 @@ class EpisodicMemory:
 
         Args:
             query: The query string to find context for.
-            limit: The maximum number of episodes to return.
+            limit: The maximum number of episodes to return. The limit is
+                   applied to both short and long term memories. The default
+                   value is 20.
             filter: A dictionary of properties to filter the search in
                     declarative memory.
 
