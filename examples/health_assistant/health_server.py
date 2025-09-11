@@ -44,7 +44,7 @@ async def store_data(user_id: str, query: str):
         )
         response.raise_for_status()
         return {"status": "success", "data": response.json()}
-    except Exception as e:
+    except Exception:
         logging.exception("Error occurred in /memory store_data")
         return {"status": "error", "message": "Internal error in /memory store_data"}
 
@@ -114,7 +114,7 @@ async def get_data(query: str, user_id: str, timestamp: str):
             "formatted_query": formatted_query,
             "query_type": "health_analyst",
         }
-    except Exception as e:
+    except Exception:
         logging.exception("Error occurred in /memory get_data")
         return {"status": "error", "message": "Internal error in /memory get_data"}
 
@@ -209,7 +209,7 @@ async def store_and_search_data(user_id: str, query: str):
         else:
             return f"Message ingested successfully. No relevant context found yet.\n\nFormatted Response:\n{formatted_response}"
 
-    except Exception as e:
+    except Exception:
         logging.exception("Error occurred in store_and_search_data")
         return {"status": "error", "message": "Internal error in store_and_search"}
 
