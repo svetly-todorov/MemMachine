@@ -266,7 +266,7 @@ class EpisodicMemory:
         query: str,
         limit: int | None = None,
         property_filter: dict | None = None,
-    ) -> tuple[list[Episode], list[str]]:
+    ) -> tuple[list[Episode], list[Episode], list[str]]:
         """
         Retrieves relevant context for a given query from all memory stores.
 
@@ -276,12 +276,15 @@ class EpisodicMemory:
 
         Args:
             query: The query string to find context for.
-            limit: The maximum number of episodes to return.
+            limit: The maximum number of episodes to return. The limit is
+                   applied to both short and long term memories. The default
+                   value is 20.
             filter: A dictionary of properties to filter the search in
                     declarative memory.
 
         Returns:
-            A tuple containing a list of relevant Episode objects and a
+            A tuple containing a list of short term memory Episode objects,
+            a list of long term memory Episode objects, and a
             list of summary strings.
         """
         start_time = datetime.now()
@@ -294,7 +297,10 @@ class EpisodicMemory:
         async with self._lock:
             # Concurrently search both memory stores
             session_result, long_episode = await asyncio.gather(
-                self._session_memory.get_session_memory_context(query),
+                self._session_memory.get_session_memory_context(
+                    query,
+                    limit=search_limit
+                ),
                 self._long_term_memory.search(
                     query, search_limit, property_filter
                 ),
@@ -312,19 +318,13 @@ class EpisodicMemory:
                 uuid_set.add(episode.uuid)
                 unique_long_episodes.append(episode)
 
-        # Combine the lists
-        combined_episodes = short_episode + unique_long_episodes
-
-        # Apply the final limit if specified
-        if limit is not None and len(combined_episodes) > limit:
-            combined_episodes = combined_episodes[:limit]
         end_time = datetime.now()
         delta = end_time - start_time
         self._query_latency_summary.observe(
             delta.total_seconds() * 1000 + delta.microseconds / 1000
         )
         self._query_counter.increment()
-        return combined_episodes, [short_summary]
+        return short_episode, unique_long_episodes, [short_summary]
 
     async def formalize_query_with_context(
         self,
