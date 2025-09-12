@@ -26,7 +26,7 @@ with better precision and depth.
 ## Key Features
 
 - **Multiple Memory Types:** MemMachine supports Working (Short Term),
-    Persistent (Long Term), and Personlized (Profile) memory types.
+    Persistent (Long Term), and Personalized (Profile) memory types.
 - **Developer Friendly APIs:** Python SDK, RESTful, and MCP interfaces and
     endpoints to make integrating MemMachine easy into your Agents. For more
     information, refer to the
@@ -43,7 +43,7 @@ with better precision and depth.
 
 <div align="center">
 
-![MemMachine Architecture](./assets/img/MemMachine_Architecture.png)
+![MemMachine Architecture](https://github.com/MemMachine/MemMachine/blob/main/assets/img/MemMachine_Architecture.png)
 
 </div>
 
@@ -67,7 +67,7 @@ memory-powered agents that integrate into your own applications and solutions.
     and terminology, ensuring perfect consistency across all documentation.
 
 We're excited to see what you're working on. Join the
-[Discord Server](https://discord.gg/usydANvKqD) and drop a shout out to your
+[Discord Server](https://discord.gg/usydANvKqD) and drop a shout-out to your
 project in the **showcase** channel.
 
 ## Quick Start
