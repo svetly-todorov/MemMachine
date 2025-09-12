@@ -55,23 +55,6 @@ class SessionData(BaseModel):
     session_id: str
 
 
-class EpisodeData(BaseModel):
-    """Request model for episode data to create new memories."""
-    producer: str
-    produced_for: str
-    episode_content: str | list[float]
-    episode_type: str
-    metadata: dict[str, Any] | None
-
-
-class SearchRequest(BaseModel):
-    """Request model for searching memories by MCP."""
-    query: str
-    user_id: str | None = None
-    filter: dict[str, Any] | None = None
-    limit: int | None = None
-
-
 # === Request Models ===
 class NewEpisode(BaseModel):
     """Request model for adding a new memory episode."""
@@ -249,97 +232,6 @@ app.add_route("/metrics", make_asgi_app())
 
 
 @mcp.tool()
-async def mcp_open_memory_store(sess: SessionData, ctx: Context):
-    """MCP tool to create and open a memory store.
-
-    This tool establishes a session context for subsequent MCP tool calls.
-    The session data is stored in the MCP context state.
-
-    Args:
-        sess: The session data to establish the context.
-        ctx: The MCP context.
-
-    Returns:
-        No return value.
-    """
-    old_sess = ctx.get_state("session_data")
-    if old_sess is not None:
-        await episodic_memory.close_episodic_memory_instance(
-            group_id=old_sess.group_id,
-            agent_id=old_sess.agent_id,
-            user_id=old_sess.user_id,
-            session_id=old_sess.session_id,
-        )
-    ctx.set_state("session_data", sess)
-
-
-@mcp.tool()
-async def mcp_close_memory_store(ctx: Context):
-    """MCP tool to close the currently open memory store.
-
-    This tool retrieves the session data from the MCP context, closes the
-    corresponding episodic memory instance, and clears the session from the
-    context.
-
-    Args:
-        ctx: The MCP context.
-
-    Returns:
-        No return value.
-    """
-    sess = ctx.get_state("session_data")
-    if sess is None:
-        return
-    await episodic_memory.close_episodic_memory_instance(
-        group_id=sess.group_id,
-        agent_id=sess.agent_id,
-        user_id=sess.user_id,
-        session_id=sess.session_id,
-    )
-    ctx.set_state("session_data", None)
-
-
-@mcp.tool()
-async def mcp_add_memory(
-    episode: EpisodeData,
-    ctx: Context
-) -> dict[str, Any]:
-    """MCP tool to add a memory episode to the current session.
-
-    This tool requires an open memory session. It adds a new memory episode
-    to the episodic and profile memories associated with the current session.
-
-    Args:
-        episode: The episode data to be added.
-        ctx: The MCP context.
-
-    Returns:
-        Status 0 if the memory was added successfully, -1 otherwise with
-        error message.
-    """
-    sess = ctx.get_state("session_data")
-    if sess is None:
-        return {"status": -1, "error_msg": "No session open"}
-    data = NewEpisode(
-        session=sess,
-        producer=episode.producer,
-        produced_for=episode.produced_for,
-        episode_content=episode.episode_content,
-        episode_type=episode.episode_type,
-        metadata=episode.metadata,
-    )
-    try:
-        await add_memory(data)
-    except HTTPException as e:
-        session_name = f"""{sess.group_id}-{sess.agent_id}-
-                           {sess.user_id}-{sess.session_id}"""
-        logger.error("Failed to add memory episode for %s", session_name)
-        logger.error(e)
-        return {"status": -1, "error_msg": str(e)}
-    return {"status": 0, "error_msg": ""}
-
-
-@mcp.tool()
 async def mcp_add_session_memory(episode: NewEpisode) -> dict[str, Any]:
     """MCP tool to add a memory episode for a specific session.
 
@@ -365,35 +257,6 @@ async def mcp_add_session_memory(episode: NewEpisode) -> dict[str, Any]:
         logger.error(e)
         return {"status": -1, "error_msg": str(e)}
     return {"status": 0, "error_msg": ""}
-
-
-@mcp.tool()
-async def mcp_search_memory(q: SearchRequest, ctx: Context) -> SearchResult:
-    """MCP tool to search for memories in the current session.
-
-    This tool requires an open memory session. It searches both episodic and
-    profile memories associated with the current session.
-
-    Args:
-        q: The search request containing the query and filters.
-        ctx: The MCP context.
-
-    Returns:
-        A SearchResult object if successful, None otherwise.
-    """
-    sess = ctx.get_state("session_data")
-    if sess is None:
-        return SearchResult(
-            status=-1,
-            content={"error_msg": "No session open"}
-        )
-    query = SearchQuery(
-        session=sess,
-        query=q.query,
-        filter=q.filter,
-        limit=q.limit,
-    )
-    return await search_memory(query)
 
 
 @mcp.tool()
