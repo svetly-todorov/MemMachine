@@ -49,13 +49,13 @@ class MetadataDerivativeMutator(DerivativeMutator):
                 "content_type": derivative.content_type.value,
                 "content": derivative.content,
                 "timestamp": derivative.timestamp,
-                "isolation_properties": derivative.isolation_properties,
+                "filterable_properties": derivative.filterable_properties,
                 "user_metadata": derivative.user_metadata,
             },
             **{
                 key: value
                 for key, value in {
-                    **derivative.isolation_properties,
+                    **derivative.filterable_properties,
                     **(
                         derivative.user_metadata
                         if isinstance(derivative.user_metadata, dict)
@@ -72,7 +72,7 @@ class MetadataDerivativeMutator(DerivativeMutator):
                 content_type=derivative.content_type,
                 content=mutated_content,
                 timestamp=derivative.timestamp,
-                isolation_properties=derivative.isolation_properties,
+                filterable_properties=derivative.filterable_properties,
                 user_metadata=derivative.user_metadata,
             )
         ]

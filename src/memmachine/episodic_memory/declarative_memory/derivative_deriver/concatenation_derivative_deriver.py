@@ -48,7 +48,7 @@ class ConcatenationDerivativeDeriver(DerivativeDeriver):
                     episode.content for episode in episode_cluster.episodes
                 ),
                 timestamp=episode_cluster.timestamp,
-                isolation_properties=episode_cluster.isolation_properties,
+                filterable_properties=episode_cluster.filterable_properties,
                 user_metadata=episode_cluster.user_metadata,
             )
         ]

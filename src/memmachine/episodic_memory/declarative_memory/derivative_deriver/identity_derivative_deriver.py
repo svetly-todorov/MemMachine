@@ -42,7 +42,7 @@ class IdentityDerivativeDeriver(DerivativeDeriver):
                 content_type=episode.content_type,
                 content=episode.content,
                 timestamp=episode.timestamp,
-                isolation_properties=episode.isolation_properties,
+                filterable_properties=episode.filterable_properties,
                 user_metadata=episode.user_metadata,
             )
             for episode in episode_cluster.episodes
