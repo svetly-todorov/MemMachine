@@ -25,7 +25,7 @@ async def delete_data(
         "database": database,
     }
     print(
-        f"Deleteing tables in {
+        f"Deleting tables in {
             {
                 'host': host,
                 'port': port,
