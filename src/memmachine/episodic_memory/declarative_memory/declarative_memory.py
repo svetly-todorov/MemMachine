@@ -20,10 +20,10 @@ from .data_types import (
     Derivative,
     Episode,
     EpisodeCluster,
-    IsolationPropertyValue,
-    demangle_isolation_property_key,
-    is_mangled_isolation_property_key,
-    mangle_isolation_property_key,
+    FilterablePropertyValue,
+    demangle_filterable_property_key,
+    is_mangled_filterable_property_key,
+    mangle_filterable_property_key,
 )
 from .derivative_deriver import DerivativeDeriver
 from .derivative_mutator import DerivativeMutator
@@ -223,10 +223,10 @@ class DeclarativeMemory:
             uuid=uuid4(),
             episodes=cluster_episodes,
             timestamp=cluster_episodes[-1].timestamp,
-            isolation_properties=dict(
+            filterable_properties=dict(
                 set.intersection(
                     *(
-                        set(cluster_episode.isolation_properties.items())
+                        set(cluster_episode.filterable_properties.items())
                         for cluster_episode in cluster_episodes
                     )
                 )
@@ -299,8 +299,8 @@ class DeclarativeMemory:
                     "user_metadata": json.dumps(derivative.user_metadata),
                 }
                 | {
-                    mangle_isolation_property_key(key): value
-                    for key, value in derivative.isolation_properties.items()
+                    mangle_filterable_property_key(key): value
+                    for key, value in derivative.filterable_properties.items()
                 },
             )
             for derivative, derivative_embedding in zip(
@@ -349,9 +349,9 @@ class DeclarativeMemory:
                     "user_metadata": json.dumps(episode_cluster.user_metadata),
                 }
                 | {
-                    mangle_isolation_property_key(key): value
+                    mangle_filterable_property_key(key): value
                     for key, value in (
-                        episode_cluster.isolation_properties.items()
+                        episode_cluster.filterable_properties.items()
                     )
                 }
             ),
@@ -417,8 +417,8 @@ class DeclarativeMemory:
                 "user_metadata": json.dumps(episode.user_metadata),
             }
             | {
-                mangle_isolation_property_key(key): value
-                for key, value in episode.isolation_properties.items()
+                mangle_filterable_property_key(key): value
+                for key, value in episode.filterable_properties.items()
             },
         )
 
@@ -482,7 +482,7 @@ class DeclarativeMemory:
         self,
         query: str,
         num_episodes_limit: int = 20,
-        isolation_properties: dict[str, IsolationPropertyValue] = {},
+        filterable_properties: dict[str, FilterablePropertyValue] = {},
     ) -> list[Episode]:
         """
         Search declarative memory for episodes relevant to the query.
@@ -493,12 +493,12 @@ class DeclarativeMemory:
             num_episodes_limit (int, optional):
                 The maximum number
                 of episodes to return (default: 20).
-            isolation_properties (
-                dict[str, IsolationPropertyValue], optional
+            filterable_properties (
+                dict[str, FilterablePropertyValue], optional
             ):
-                Isolation property keys and values to use
-                for filtering episodes to the same context.
-                If not provided, no isolation filtering is applied.
+                Filterable property keys and values to use
+                for filtering episodes.
+                If not provided, no filtering is applied.
 
         Returns:
             list[Episode]:
@@ -533,8 +533,8 @@ class DeclarativeMemory:
                 query_embedding=derivative_embedding,
                 required_labels={"Derivative"},
                 required_properties={
-                    mangle_isolation_property_key(key): value
-                    for key, value in isolation_properties.items()
+                    mangle_filterable_property_key(key): value
+                    for key, value in filterable_properties.items()
                 },
                 include_missing_properties=True,
             )
@@ -558,8 +558,8 @@ class DeclarativeMemory:
                 find_targets=True,
                 required_labels={"EpisodeCluster"},
                 required_properties={
-                    mangle_isolation_property_key(key): value
-                    for key, value in isolation_properties.items()
+                    mangle_filterable_property_key(key): value
+                    for key, value in filterable_properties.items()
                 },
                 include_missing_properties=True,
             )
@@ -588,8 +588,8 @@ class DeclarativeMemory:
                 find_targets=True,
                 required_labels={"Episode"},
                 required_properties={
-                    mangle_isolation_property_key(key): value
-                    for key, value in isolation_properties.items()
+                    mangle_filterable_property_key(key): value
+                    for key, value in filterable_properties.items()
                 },
             )
             for matched_episode_cluster_node in matched_episode_cluster_nodes
@@ -613,7 +613,7 @@ class DeclarativeMemory:
         expand_episode_node_contexts_tasks = [
             self._expand_episode_node_context(
                 nuclear_episode_node,
-                isolation_properties=isolation_properties,
+                filterable_properties=filterable_properties,
             )
             for nuclear_episode_node in nuclear_episode_nodes
         ]
@@ -659,12 +659,12 @@ class DeclarativeMemory:
                     datetime,
                     node.properties.get("timestamp", datetime.min),
                 ),
-                isolation_properties={
-                    demangle_isolation_property_key(key): cast(
-                        IsolationPropertyValue, value
+                filterable_properties={
+                    demangle_filterable_property_key(key): cast(
+                        FilterablePropertyValue, value
                     )
                     for key, value in node.properties.items()
-                    if is_mangled_isolation_property_key(key)
+                    if is_mangled_filterable_property_key(key)
                 },
                 user_metadata=json.loads(
                     cast(str, node.properties["user_metadata"])
@@ -682,7 +682,7 @@ class DeclarativeMemory:
         self,
         nucleus_episode_node: Node,
         retrieval_depth_limit: int = 1,
-        isolation_properties: dict[str, IsolationPropertyValue] = {},
+        filterable_properties: dict[str, FilterablePropertyValue] = {},
     ) -> set[Node]:
         """
         Expand the context of a nucleus episode node
@@ -701,8 +701,8 @@ class DeclarativeMemory:
                     limit=10,
                     required_labels={"Episode"},
                     required_properties={
-                        mangle_isolation_property_key(key): value
-                        for key, value in isolation_properties.items()
+                        mangle_filterable_property_key(key): value
+                        for key, value in filterable_properties.items()
                     },
                 )
                 for frontier_node in frontier
@@ -812,18 +812,18 @@ class DeclarativeMemory:
 
     async def forget_isolated_episodes(
         self,
-        isolation_properties: dict[str, IsolationPropertyValue] = {},
+        filterable_properties: dict[str, FilterablePropertyValue] = {},
     ):
         """
-        Forget all episodes matching the given isolation properties
+        Forget all episodes matching the given filterable properties
         and data derived from them.
         """
         matching_episode_nodes = (
             await self._vector_graph_store.search_matching_nodes(
                 required_labels={"Episode"},
                 required_properties={
-                    mangle_isolation_property_key(key): value
-                    for key, value in isolation_properties.items()
+                    mangle_filterable_property_key(key): value
+                    for key, value in filterable_properties.items()
                 },
             )
         )

@@ -15,10 +15,10 @@ from memmachine.common.vector_graph_store import VectorGraphStore
 from ..data_types import (
     ContentType,
     Episode,
-    IsolationPropertyValue,
-    demangle_isolation_property_key,
-    is_mangled_isolation_property_key,
-    mangle_isolation_property_key,
+    FilterablePropertyValue,
+    demangle_filterable_property_key,
+    is_mangled_filterable_property_key,
+    mangle_filterable_property_key,
 )
 from .related_episode_postulator import RelatedEpisodePostulator
 
@@ -43,10 +43,10 @@ class PreviousRelatedEpisodePostulator(RelatedEpisodePostulator):
                 - search_limit (int, optional):
                   The maximum number of related previous episodes
                   to postulate (default: 1).
-                - isolation_property_keys (set[str], optional):
+                - filterable_property_keys (set[str], optional):
                   A set of property keys
-                  to use for filtering episodes to the same context.
-                  If not provided, no isolation filtering is applied.
+                  to use for filtering episodes.
+                  If not provided, no filtering is applied.
 
         Raises:
             ValueError:
@@ -66,8 +66,8 @@ class PreviousRelatedEpisodePostulator(RelatedEpisodePostulator):
 
         self._search_limit = config.get("search_limit", 1)
 
-        self._isolation_property_keys = (
-            config.get("isolation_property_keys") or set()
+        self._filterable_property_keys = (
+            config.get("filterable_property_keys") or set()
         )
 
     async def postulate(self, episode: Episode) -> list[Episode]:
@@ -79,11 +79,11 @@ class PreviousRelatedEpisodePostulator(RelatedEpisodePostulator):
                 limit=self._search_limit,
                 required_labels={"Episode"},
                 required_properties={
-                    mangle_isolation_property_key(
+                    mangle_filterable_property_key(
                         key
-                    ): episode.isolation_properties[key]
-                    for key in self._isolation_property_keys
-                    if key in episode.isolation_properties
+                    ): episode.filterable_properties[key]
+                    for key in self._filterable_property_keys
+                    if key in episode.filterable_properties
                 },
             )
         )
@@ -105,12 +105,12 @@ class PreviousRelatedEpisodePostulator(RelatedEpisodePostulator):
                         "timestamp", datetime.min
                     ),
                 ),
-                isolation_properties={
-                    demangle_isolation_property_key(key): cast(
-                        IsolationPropertyValue, value
+                filterable_properties={
+                    demangle_filterable_property_key(key): cast(
+                        FilterablePropertyValue, value
                     )
                     for key, value in previous_episode_node.properties.items()
-                    if is_mangled_isolation_property_key(key)
+                    if is_mangled_filterable_property_key(key)
                 },
                 user_metadata=json.loads(
                     cast(

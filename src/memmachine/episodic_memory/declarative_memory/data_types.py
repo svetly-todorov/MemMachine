@@ -4,7 +4,7 @@ from enum import Enum
 from typing import Any
 from uuid import UUID
 
-IsolationPropertyValue = bool | int | str
+FilterablePropertyValue = bool | int | str
 JSONValue = (
     None
     | bool
@@ -27,7 +27,7 @@ class Episode:
     content_type: ContentType
     content: Any
     timestamp: datetime
-    isolation_properties: dict[str, IsolationPropertyValue] = field(
+    filterable_properties: dict[str, FilterablePropertyValue] = field(
         default_factory=dict
     )
     user_metadata: JSONValue = None
@@ -38,7 +38,7 @@ class EpisodeCluster:
     uuid: UUID
     episodes: list[Episode] = field(default_factory=list)
     timestamp: datetime | None = None
-    isolation_properties: dict[str, IsolationPropertyValue] = field(
+    filterable_properties: dict[str, FilterablePropertyValue] = field(
         default_factory=dict
     )
     user_metadata: JSONValue = None
@@ -51,19 +51,19 @@ class Derivative:
     content_type: ContentType
     content: Any
     timestamp: datetime | None = None
-    isolation_properties: dict[str, IsolationPropertyValue] = field(
+    filterable_properties: dict[str, FilterablePropertyValue] = field(
         default_factory=dict
     )
     user_metadata: JSONValue = None
 
 
-def mangle_isolation_property_key(key: str) -> str:
-    return f"isolation_{key}"
+def mangle_filterable_property_key(key: str) -> str:
+    return f"filterable_{key}"
 
 
-def demangle_isolation_property_key(mangled_key: str) -> str:
-    return mangled_key.removeprefix("isolation_")
+def demangle_filterable_property_key(mangled_key: str) -> str:
+    return mangled_key.removeprefix("filterable_")
 
 
-def is_mangled_isolation_property_key(candidate_key: str) -> bool:
-    return candidate_key.startswith("isolation_")
+def is_mangled_filterable_property_key(candidate_key: str) -> bool:
+    return candidate_key.startswith("filterable_")
