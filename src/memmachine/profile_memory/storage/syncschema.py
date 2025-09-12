@@ -105,12 +105,12 @@ def main():
     parser.add_argument(
         "--password",
         default=os.getenv("POSTGRES_PASSWORD"),
-        help="the defualt password is read from the environement variable POSTGRES_PASS",
+        help="the default password is read from the environement variable POSTGRES_PASSWORD",
     )
     parser.add_argument(
         "--delete",
         action="store_true",
-        help="delete and recreate the database with new schema. Use the migration system if you care about data inside the old database.",
+        help="delete and recreate the database with new schema.",
     )
     args = parser.parse_args()
 
