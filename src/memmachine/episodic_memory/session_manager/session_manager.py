@@ -19,6 +19,7 @@ class Base(DeclarativeBase):  # pylint: disable=too-few-public-methods
 
 IntKeyColumn = Annotated[int, mapped_column(Integer, primary_key=True)]
 IntColumn = Annotated[int, mapped_column(Integer)]
+StringKeyColumn = Annotated[str, mapped_column(String, primary_key=True)]
 StringColumn = Annotated[str, mapped_column(String)]
 
 
@@ -68,8 +69,7 @@ class SessionManager:
         """ORM model for a group information."""
 
         __tablename__ = "group_info"
-        id: Mapped[IntKeyColumn]
-        group_id: Mapped[StringColumn]
+        group_id: Mapped[StringKeyColumn]
         user_list: Mapped[StringColumn]
         agent_list: Mapped[StringColumn]
         configuration: Mapped[StringColumn]
