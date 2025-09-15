@@ -6,7 +6,6 @@ from datetime import datetime
 from typing import cast
 
 from dotenv import load_dotenv
-
 from memmachine.episodic_memory.data_types import ContentType
 from memmachine.episodic_memory.episodic_memory import EpisodicMemory
 from memmachine.episodic_memory.episodic_memory_manager import (
