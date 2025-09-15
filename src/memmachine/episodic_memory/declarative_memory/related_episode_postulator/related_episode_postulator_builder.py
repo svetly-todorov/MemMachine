@@ -47,8 +47,8 @@ class RelatedEpisodePostulatorBuilder(Builder):
                         config["vector_graph_store_id"]
                     ],
                     "search_limit": config.get("search_limit", 1),
-                    "isolation_property_keys": config.get(
-                        "isolation_property_keys", set()
+                    "filterable_property_keys": config.get(
+                        "filterable_property_keys", set()
                     ),
                 }
                 return PreviousRelatedEpisodePostulator(populated_config)

@@ -28,7 +28,7 @@ class IdentityDerivativeMutator(DerivativeMutator):
                 content_type=derivative.content_type,
                 content=derivative.content,
                 timestamp=derivative.timestamp,
-                isolation_properties=derivative.isolation_properties,
+                filterable_properties=derivative.filterable_properties,
                 user_metadata=derivative.user_metadata,
             )
         ]

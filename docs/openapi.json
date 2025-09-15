@@ -7,14 +7,27 @@
   },
   "servers": [
     {
-      "url": "https://localhost:8000"
+      "url": "https://localhost:8000/v1"
+    }
+  ],
+  "tags": [
+    {
+      "name": "RESTful APIs",
+      "description": "Standard RESTful API endpoints for managing memories and sessions."
+    },
+    {
+      "name": "MCP Server APIs",
+      "description": "API endpoints exposed as tools and resources for use with an LLM via the MCP server."
     }
   ],
   "paths": {
-    "/add_memory": {
+    "/memories": {
       "post": {
-        "summary": "add_memory",
-        "description": "This endpoint adds a memory episode to the episodic memory and passes the message to the profile memory for ingestion.",
+        "tags": [
+          "RESTful APIs"
+        ],
+        "summary": "/memories",
+        "description": "This endpoint first retrieves the appropriate episodic memory instance based on the session context (group, agent, user, session IDs). It then adds the episode to the episodic memory. If successful, it also passes the message to the profile memory for ingestion.",
         "requestBody": {
           "required": true,
           "content": {
@@ -36,11 +49,39 @@
             "description": "No matching episodic memory instance found."
           }
         }
+      },
+      "delete": {
+        "tags": [
+          "RESTful APIs"
+        ],
+        "summary": "/memories",
+        "description": "Deletes all data for a particular session.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteDataRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Session data successfully deleted."
+          },
+          "404": {
+            "description": "No matching episodic memory instance found."
+          }
+        }
       }
     },
-    "/search_memory": {
+    "/memories/search": {
       "post": {
-        "summary": "search_memory",
+        "tags": [
+          "RESTful APIs"
+        ],
+        "summary": "/memories/search",
         "description": "Retrieves the relevant episodic memory instance and then performs concurrent searches in both the episodic memory and the profile memory. The results are combined into a single response object.",
         "requestBody": {
           "required": true,
@@ -69,33 +110,13 @@
         }
       }
     },
-    "/delete_data": {
-      "post": {
-        "summary": "delete_data",
-        "requestBody": {
-          "required": true,
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/DeleteDataRequest"
-              }
-            }
-          }
-        },
-        "responses": {
-          "200": {
-            "description": "Session data successfully deleted."
-          },
-          "404": {
-            "description": "No matching episodic memory instance found."
-          }
-        }
-      }
-    },
     "/sessions": {
       "get": {
-        "summary": "sessions",
-        "description": "Retrieves a list of all available memory sessions.",
+        "tags": [
+          "RESTful APIs"
+        ],
+        "summary": "/sessions",
+        "description": "Get all sessions",
         "responses": {
           "200": {
             "description": "A list of all sessions.",
@@ -110,9 +131,13 @@
         }
       }
     },
-    "/sessions/{user_id}": {
+    "/users/{user_id}/sessions": {
       "get": {
-        "summary": "sessions/{user_id}",
+        "tags": [
+          "RESTful APIs"
+        ],
+        "summary": "/users/{user_id}/sessions",
+        "description": "Get all sessions for a particular user",
         "parameters": [
           {
             "name": "user_id",
@@ -137,9 +162,13 @@
         }
       }
     },
-    "/sessions/{group_id}": {
+    "/groups/{group_id}/sessions": {
       "get": {
-        "summary": "sessions/{group_id}",
+        "tags": [
+          "RESTful APIs"
+        ],
+        "summary": "/groups/{group_id}/sessions",
+        "description": "Get all sessions for a particular group",
         "parameters": [
           {
             "name": "group_id",
@@ -164,9 +193,13 @@
         }
       }
     },
-    "/sessions/{agent_id}": {
+    "/agents/{agent_id}/sessions": {
       "get": {
-        "summary": "sessions/{agent_id}",
+        "tags": [
+          "RESTful APIs"
+        ],
+        "summary": "/agents/{agent_id}/sessions",
+        "description": "Get all sessions for a particular agent",
         "parameters": [
           {
             "name": "agent_id",
@@ -180,6 +213,254 @@
         "responses": {
           "200": {
             "description": "A list of sessions for the specified agent.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllSessionsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mcp/add_session_memory": {
+      "post": {
+        "tags": [
+          "MCP Server APIs"
+        ],
+        "summary": "add_session_memory",
+        "description": "Adds a memory episode directly using the session data provided in the `NewEpisode` object. This endpoint is for internal use by LLMs via FastMCP.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewEpisode"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Status 0 if the memory was added successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "integer" },
+                    "error_msg": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mcp/search_session_memory": {
+      "post": {
+        "tags": [
+          "MCP Server APIs"
+        ],
+        "summary": "search_session_memory",
+        "description": "Searches both episodic and profile memories for the provided query. This endpoint is for internal use by LLMs via FastMCP.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchQuery"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "A search result object.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mcp/delete_session_data": {
+      "post": {
+        "tags": [
+          "MCP Server APIs"
+        ],
+        "summary": "delete_session_data",
+        "description": "Deletes all data associated with the provided session data. This endpoint is for internal use by LLMs via FastMCP.",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/DeleteDataRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Status 0 if deletion was successful.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "integer" },
+                    "error_msg": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mcp/delete_data": {
+      "post": {
+        "tags": [
+          "MCP Server APIs"
+        ],
+        "summary": "delete_data",
+        "description": "Deletes all data associated with the session stored in the MCP context. This endpoint is for internal use by LLMs via FastMCP.",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {}
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Status 0 if deletion was successful.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "integer" },
+                    "error_msg": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mcp/sessions": {
+      "get": {
+        "tags": [
+          "MCP Server APIs"
+        ],
+        "summary": "sessions",
+        "description": "Retrieves all memory sessions. This endpoint is for internal use by LLMs via FastMCP.",
+        "responses": {
+          "200": {
+            "description": "An AllSessionsResponse containing a list of all sessions.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllSessionsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mcp/users/{user_id}/sessions": {
+      "get": {
+        "tags": [
+          "MCP Server APIs"
+        ],
+        "summary": "users/{user_id}/sessions",
+        "description": "Retrieves all sessions for a specific user. This endpoint is for internal use by LLMs via FastMCP.",
+        "parameters": [
+          {
+            "name": "user_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of sessions for the user.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllSessionsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mcp/groups/{group_id}/sessions": {
+      "get": {
+        "tags": [
+          "MCP Server APIs"
+        ],
+        "summary": "groups/{group_id}/sessions",
+        "description": "Retrieves all sessions for a specific group. This endpoint is for internal use by LLMs via FastMCP.",
+        "parameters": [
+          {
+            "name": "group_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of sessions for the group.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/AllSessionsResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mcp/agents/{agent_id}/sessions": {
+      "get": {
+        "tags": [
+          "MCP Server APIs"
+        ],
+        "summary": "agents/{agent_id}/sessions",
+        "description": "Retrieves all sessions for a specific agent. This endpoint is for internal use by LLMs via FastMCP.",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "A list of sessions for the agent.",
             "content": {
               "application/json": {
                 "schema": {
@@ -278,6 +559,10 @@
       "SearchResult": {
         "type": "object",
         "properties": {
+          "status": {
+            "type": "integer",
+            "default": 0
+          },
           "content": {
             "type": "object",
             "additionalProperties": true

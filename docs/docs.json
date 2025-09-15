@@ -9,7 +9,7 @@
   },
   "integrations": {
     "ga4": {
-        "measurementId": "G-166982145"
+        "measurementId": "G-ED9JCR55CL"
     }
   },
   "favicon": "favicon.ico",
@@ -51,10 +51,15 @@
       {
         "tab": "API Reference",
         "groups": [
+         {
+           "group": "Introduction",
+           "pages": [
+             "api_reference/intro"
+            ]
+          }, 
         {
            "group": "PythonSDK",
            "pages": [
-             "api_reference/intro",
              "api_reference/python/episodic_memory",
              "api_reference/python/episodic_memory_manager",
              "api_reference/python/memory_types",
@@ -62,7 +67,7 @@
             ]
           },
         {
-          "group": "API reference",
+          "group": "API Reference",
           "openapi": "openapi.json",
           "playground": {
             "display": "interactive"

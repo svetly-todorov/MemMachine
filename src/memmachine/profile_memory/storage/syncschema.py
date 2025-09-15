@@ -24,7 +24,17 @@ async def delete_data(
         "password": password,
         "database": database,
     }
-    print(f"Deleteing tables in {d}")
+    print(
+        f"Deleting tables in {
+            {
+                'host': host,
+                'port': port,
+                'user': user,
+                'password': '****',
+                'database': database,
+            }
+        }"
+    )
     pool = await asyncpg.create_pool(init=register_vector, **d)
     table_records = await pool.fetch(
         """
@@ -49,7 +59,17 @@ async def sync_to(
         "password": password,
         "database": database,
     }
-    print(f"syncing to: {d}")
+    print(
+        f"Syncing schema to {
+            {
+                'host': host,
+                'port': port,
+                'user': user,
+                'password': '****',
+                'database': database,
+            }
+        }"
+    )
     connection = await asyncpg.connect(**d)
     await connection.execute(get_base())
     print("Re-initializing ...")
@@ -85,12 +105,12 @@ def main():
     parser.add_argument(
         "--password",
         default=os.getenv("POSTGRES_PASSWORD"),
-        help="the defualt password is read from the environement variable POSTGRES_PASS",
+        help="the default password is read from the environement variable POSTGRES_PASSWORD",
     )
     parser.add_argument(
         "--delete",
         action="store_true",
-        help="delete and recreate the database with new schema. Use the migration system if you care about data inside the old database.",
+        help="delete and recreate the database with new schema.",
     )
     args = parser.parse_args()
 

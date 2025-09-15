@@ -28,8 +28,8 @@ cd MemMachine
 Create a `.env` file in the project root with your database credentials:
 ```bash
 cat > .env << 'EOF'
-NEO4J_USERNAME="neo4j"
-NEO4J_PASSWORD="YOUR_NEO4J_PASSWORD"
+NEO4J_USERNAME=NEO4J
+NEO4J_PASSWORD=YOUR_NEO4J_PASSWORD
 NEO4J_URI="bolt://localhost:7687"
 
 # Postgres database configuration
@@ -189,9 +189,9 @@ For session management, you can use PostgreSQL:
    ```
  -  **Create database:**
    ```sql
-   CREATE DATABASE memmachine;
-   CREATE USER memmachine WITH PASSWORD 'your_password';
-   GRANT ALL PRIVILEGES ON DATABASE memmachine TO memmachine;
+   CREATE DATABASE 'your_database';
+   CREATE USER 'your_user' WITH PASSWORD 'your_password';
+   GRANT ALL PRIVILEGES ON DATABASE 'your_database' TO 'your_user';
    ```
 
 4. Run MemMachine with custom configuration:

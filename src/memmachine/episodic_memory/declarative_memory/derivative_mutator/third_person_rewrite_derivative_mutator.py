@@ -88,8 +88,8 @@ class ThirdPersonRewriteDerivativeMutator(DerivativeMutator):
                 content_type=ContentType.STRING,
                 content=mutated_content,
                 timestamp=derivative.timestamp,
-                isolation_properties=(
-                    source_episode_cluster.isolation_properties
+                filterable_properties=(
+                    source_episode_cluster.filterable_properties
                 ),
                 user_metadata=derivative.user_metadata,
             )
