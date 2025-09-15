@@ -13,7 +13,17 @@ cp sample_configs/env.docercompose .env
 # Edit .env and add your OPENAI_API_KEY
 ```
 
-### 2. Start Services
+### 2. Configure MemMachine
+Copy the sample configuration file and update it with your settings:
+```bash
+cp sample_configs/episodic_memory_config.sample configuration.yml
+# Edit configuration.yml and update:
+# - Replace <YOUR_API_KEY> with your OpenAI API key
+# - Replace <YOUR_PASSWORD_HERE> with your Neo4j password
+# - Update host from 'localhost' to 'neo4j' for Docker environment
+```
+
+### 3. Start Services
 Run the startup script:
 ```bash
 ./start-docker.sh
@@ -26,7 +36,7 @@ This will:
 - ✅ Wait for all services to be healthy
 - ✅ Display service URLs and connection info
 
-### 3. Access Services
+### 4. Access Services
 Once started, you can access:
 
 - **MemMachine API**: http://localhost:8080
@@ -34,7 +44,7 @@ Once started, you can access:
 - **Health Check**: http://localhost:8080/health
 - **Metrics**: http://localhost:8080/metrics
 
-### 4. Test the Setup
+### 5. Test the Setup
 ```bash
 # Test health endpoint
 curl http://localhost:8080/health
@@ -93,8 +103,10 @@ Key files:
 - `docker-compose.yml` - Service definitions
 - `start-docker.sh` - Startup script
 
-### ⚠️ Important Configuration Note
-**Make sure the database configuration details in `configuration.yml` match the database configuration details in `.env`**
+### ⚠️ Important Configuration Notes
+
+**1. Database Configuration Consistency**
+Make sure the database configuration details in `configuration.yml` match the database configuration details in `.env`
 
 Both files must have consistent:
 - Database hostnames (use service names: `postgres`, `neo4j`)
@@ -102,4 +114,16 @@ Both files must have consistent:
 - Database credentials (usernames and passwords)
 - Database names
 
-This ensures MemMachine can properly connect to the Docker services.
+**2. Configuration.yml Setup**
+The `configuration.yml` file contains MemMachine-specific settings:
+- **Model configuration**: OpenAI API settings for LLM and embeddings
+- **Storage configuration**: Neo4j connection details
+- **Memory settings**: Session memory capacity and limits
+- **Reranker configuration**: Search and ranking algorithms
+
+**Key settings to update in configuration.yml:**
+- Replace `<YOUR_API_KEY>` with your OpenAI API key (appears in both Model and embedder sections)
+- Replace `<YOUR_PASSWORD_HERE>` with your Neo4j password
+- Ensure the Neo4j host is set to `neo4j` (not `localhost`) for Docker environment
+
+This ensures MemMachine can properly connect to the Docker services and use your OpenAI API key for embeddings and LLM operations.
