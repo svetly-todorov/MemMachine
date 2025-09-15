@@ -79,7 +79,7 @@ services:
       NEO4J_PASSWORD: ${NEO4J_PASSWORD:-neo4j_password}
       
       # Application configuration
-      MEMORY_CONFIG: ${MEMORY_CONFIG:-configuration.yml}
+      MEMORY_CONFIG: ${MEMORY_CONFIG:-/app/configuration.yml}
       MCP_BASE_URL: ${MCP_BASE_URL:-http://memmachine:8080}
       GATEWAY_URL: ${GATEWAY_URL:-http://localhost:8080}
       FAST_MCP_LOG_LEVEL: ${FAST_MCP_LOG_LEVEL:-INFO}
@@ -87,7 +87,6 @@ services:
       LOG_LEVEL: ${LOG_LEVEL:-INFO}
     volumes:
       - ./configuration.yml:/app/configuration.yml:ro
-      - ./src/server/configuration.yml:/app/src/server/configuration.yml:ro
       - memmachine_logs:/tmp/memory_logs
     depends_on:
       postgres:
