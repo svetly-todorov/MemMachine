@@ -1,10 +1,7 @@
 """Unit tests for the SessionManager class."""
 
 import os
-import sys
 import pytest
-sys.path.append("../src")
-
 from memmachine.episodic_memory.data_types import SessionInfo
 from memmachine.episodic_memory.session_manager.session_manager import (
     SessionManager,
