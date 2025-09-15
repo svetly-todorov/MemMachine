@@ -29,14 +29,12 @@ def session_manager():
 
 def test_create_group(session_manager: SessionManager):
     """Test creating a group."""
-    ret, msg = session_manager.create_new_group(
+    session_manager.create_new_group(
         group_id="group1",
         agent_ids=["agent1"],
         user_ids=["user1"],
         configuration={"key": "value"},
     )
-    assert ret
-    assert msg is None
 
     # Verify it's in the DB
     group = session_manager.retrieve_group("group1")
@@ -47,21 +45,22 @@ def test_create_group(session_manager: SessionManager):
     assert group.configuration == {"key": "value"}
     assert len(session_manager.retrieve_all_groups()) == 1
     # Test create the same group
-    ret, msg = session_manager.create_new_group(
-        group_id="group1",
-        agent_ids=["agent1"],
-        user_ids=["user1"],
-        configuration={"key": "value"}
-    )
-    assert not ret
+    with pytest.raises(ValueError):
+        session_manager.create_new_group(
+            group_id="group1",
+            agent_ids=["agent1"],
+            user_ids=["user1"],
+            configuration={"key": "value"}
+        )
+
     # create a group with different ID
-    ret, msg = session_manager.create_new_group(
+    session_manager.create_new_group(
         group_id="group2",
         agent_ids=["agent1"],
         user_ids=["user1"],
         configuration={"key": "value"}
     )
-    assert ret
+
     groups = session_manager.retrieve_all_groups()
     assert len(groups) == 2
     assert groups[0].group_id != groups[1].group_id
@@ -73,13 +72,13 @@ def test_create_group(session_manager: SessionManager):
     assert len(session_manager.retrieve_all_groups()) == 0
 
     # Test createing a group with invalid parameter
-    ret, msg = session_manager.create_new_group(
-        group_id="group",
-        agent_ids=[],
-        user_ids=[],
-        configuration=None,
-    )
-    assert not ret
+    with pytest.raises(ValueError):
+        session_manager.create_new_group(
+            group_id="group",
+            agent_ids=[],
+            user_ids=[],
+            configuration=None,
+        )
 
 
 def test_create_session_if_not_exist_new(

@@ -119,7 +119,7 @@ class SessionManager:
             agent_ids: list[str],
             user_ids: list[str],
             configuration: dict | None = None,
-    ) -> tuple[bool, str | None]:
+    ):
         """
         Creates a new group.
         If the group already exists, this function fails.
@@ -131,12 +131,10 @@ class SessionManager:
             configuration (dict | None): A dictionary for group
                                           configuration.
         Returns:
-            tuple[bool, str | None]: The first value is if
-            the function call successful. The second is the error
-            message if the function failed.
+            None
         """
         if len(agent_ids) == 0 and len(user_ids) == 0:
-            return False, "New group without users or agents"
+            raise ValueError("New group without users or agents")
         with self._session() as dbsession:
             # Query for an existing group with the same ID
             group = (
@@ -145,7 +143,7 @@ class SessionManager:
                 .first()
             )
             if group is not None:
-                return False, f"""Group {group_id} already exists"""
+                raise ValueError(f"""Group {group_id} already exists""")
             group = self.GroupInfo(
                 group_id=group_id,
                 user_list=json.dumps(user_ids),
@@ -157,7 +155,6 @@ class SessionManager:
             dbsession.add(group)
             dbsession.commit()
             dbsession.refresh(group)
-            return True, None
 
     def retrieve_group(self, group_id: str) -> GroupConfiguration | None:
         """
@@ -276,14 +273,11 @@ class SessionManager:
                     .first()
                 )
                 if group is None:
-                    ret, msg = self.create_new_group(group_id, agent_ids,
-                                                     user_ids, configuration)
-                    if not ret:
-                        raise ValueError(msg)
+                    self.create_new_group(group_id, agent_ids,
+                                          user_ids, configuration)
                 else:
                     agents = group.agent_list
                     users = group.user_list
-                    config = group.configuration
 
                 # Create a new session if it doesn't exist
                 new_sess = self.MemSession(
