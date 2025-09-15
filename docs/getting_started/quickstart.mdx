@@ -17,243 +17,643 @@ Before installing MemMachine, ensure you have the following prerequisites:
 - **PostgreSQL** - For session management
 - **OpenAI API Key** - For language models and embeddings
 
-### Method 1: Docker Installation
-#### Step 1: Clone and Setup
-```bash
-git clone https://github.com/MemMachine/MemMachine.git
-cd MemMachine
-```
+### Method 1: Use Docker Compose
+This method is recommended for most users.
+<AccordionGroup>
+  <Accordion title="Step 1: Have Docker and Docker Compose Installed">
+      Make sure that you have [Docker](https://docs.docker.com/engine/install/) and [Docker Compose](https://docs.docker.com/compose/install/) installed on your machine.
+  </Accordion>
+  <Accordion title="Step 2: Download MemMachine.git and Run the Script">
+      Download MemMachine.git from GitHub, navigate to the project directory, and run the `start-docker.sh` script:
+        ```bash
+        git clone https://github.com/MemMachine/MemMachine.git
+        cd MemMachine
+        ./start-docker.sh
+        ```
+      That's it!  The script will walk you through all of the remaining steps and check the health of your memmachine installation and configuration.        
+  </Accordion>
+</AccordionGroup>
 
-#### Step 2: Create Environment File
-Create a `.env` file in the project root with your database credentials:
-```bash
-cat > .env << 'EOF'
-NEO4J_USERNAME=NEO4J
-NEO4J_PASSWORD=YOUR_NEO4J_PASSWORD
-NEO4J_URI="bolt://localhost:7687"
+### Method 2: Use Python package (Pip)
+This method is recommended for users who want to integrate MemMachine into an existing Python environment.
+<AccordionGroup>
+  <Accordion title="Step 1: Install Using Pip">
+      Run `pip install` to install the memmachine package:
+    ```bash
+    pip install memmachine
+    ```
+  </Accordion>
+  <Accordion title="Step 2: Start and Configure Databases">
+  You will need to create your [Neo4j](http://hub.docker.com/_/neo4j) and [PostgreSQL](https://hub.docker.com/_/postgres) databases before starting MemMachine, as MemMachine requires information from these databases for it's configuration files.
+   <Steps> 
+    <Step title="Start Neo4j">
+     ```bash
+     docker compose up neo4j -d
+     ```
+    </Step>
+    <Step title="PostgreSQL Setup"> 
+    For session management, you can use PostgreSQL:
+    - **Install PostgreSQL:**
+    ```bash
+      # Ubuntu/Debian
+      sudo apt-get install postgresql postgresql-contrib
+   
+      # macOS
+      brew install postgresql
+   
+      # Windows
+      # Download from postgresql.org
+    ```
+    -  **Create database:**
+     ```sql
+    CREATE DATABASE 'your_database';
+    CREATE USER 'your_user' WITH PASSWORD 'your_password';
+    GRANT ALL PRIVILEGES ON DATABASE 'your_database' TO 'your_user';
+    ```
+    </Step>
+  </Steps>
+  </Accordion>
+  <Accordion title="Step 3: Create Environment File">
+      Create a `.env` file in the project root with your database credentials (generated in Step 2) and OpenAI API key:
+        ```bash
+        # cat > .env << 'EOF'
+          NEO4J_USERNAME=neo4j
+          NEO4J_PASSWORD=YOUR_NEO4J_PASSWORD
+          NEO4J_URI="bolt://localhost:7687"
 
-# Postgres database configuration
-POSTGRES_HOST=YOUR_POSTGRES_HOST
-POSTGRES_PORT=5432
-POSTGRES_USER=YOUR_POSTGRES_USER
-POSTGRES_PASS=YOUR_POSTGRES_PASSWORD
-POSTGRES_PASSWORD=YOUR_POSTGRES_PASSWORD
-POSTGRES_DB=YOUR_POSTGRES_DATABASE
+          # Postgres database configuration
+          POSTGRES_HOST=YOUR_POSTGRES_HOST
+          POSTGRES_PORT=5432
+          POSTGRES_USER=YOUR_POSTGRES_USER
+          POSTGRES_PASS=YOUR_POSTGRES_PASSWORD
+          POSTGRES_PASSWORD=YOUR_POSTGRES_PASSWORD
+          POSTGRES_DB=YOUR_POSTGRES_DATABASE
 
-MCP_BASE_URL=http://127.0.0.1:8080
-GATEWAY_URL=http://localhost:8080
-FAST_MCP_LOG_LEVEL=INFO
-MEMORY_CONFIG=/app/configuration.yml
-OPENAI_API_KEY="YOUR_VALID_OPENAI_API_KEY"
-EOF
-```
+          MCP_BASE_URL==http://127.0.0.1:8080
+          GATEWAY_URL=http://localhost:8080
+          FAST_MCP_LOG_LEVEL=INFO
+          MEMORY_CONFIG=/app/configuration.yml
+          OPENAI_API_KEY="YOUR_VALID_OPENAI_API_KEY"
+          EOF
+          ```
+    <Note> Replace the following placeholders with your actual values </Note>
+        - `YOUR_NEO4J_PASSWORD` - Your Neo4j password
+        - `YOUR_POSTGRES_HOST` - Your PostgreSQL host (e.g., AWS RDS endpoint)
+        - `YOUR_POSTGRES_USER` - Your PostgreSQL username
+        - `YOUR_POSTGRES_PASSWORD` - Your PostgreSQL password
+        - `YOUR_POSTGRES_DATABASE` - Your PostgreSQL database name
+        - `YOUR_VALID_OPENAI_API_KEY` - Your valid OpenAI API key
+  </Accordion>
+  <Accordion title="Step 4: Create Configuration File">
+      The `configuration.yml` file should contain the following content:
 
-**Important**: Replace the following placeholders with your actual values:
-- `YOUR_NEO4J_PASSWORD` - Your Neo4j password
-- `YOUR_POSTGRES_HOST` - Your PostgreSQL host (e.g., AWS RDS endpoint)
-- `YOUR_POSTGRES_USER` - Your PostgreSQL username
-- `YOUR_POSTGRES_PASSWORD` - Your PostgreSQL password
-- `YOUR_POSTGRES_DATABASE` - Your PostgreSQL database name
-- `YOUR_VALID_OPENAI_API_KEY` - Your valid OpenAI API key
+        <Note> Replace the following placeholders with your actual values:</Note>
+        - `YOUR_VALID_OPENAI_API_KEY` - Your valid OpenAI API key (used in multiple places)
+        - `YOUR_NEO4J_PASSWORD` - Your Neo4j password (must match the password in .env and docker-compose.yml)
 
-#### Step 3: Create Configuration File
-The `configuration.yml` file should contain the following content:
+      ```yaml
+        logging:
+          path: /tmp/memory_log
+          level: info
 
-**Important**: Replace the following placeholders with your actual values:
-- `YOUR_VALID_OPENAI_API_KEY` - Your valid OpenAI API key (used in multiple places)
-- `YOUR_NEO4J_PASSWORD` - Your Neo4j password (must match the password in .env and docker-compose.yml)
+        long_term_memory:
+          derivative_deriver: sentence
+          metadata_prefix: "[$timestamp] $producer_id: "
+          embedder: my_embedder_id
+          reranker: my_reranker_id
+          vector_graph_store: my_storage_id
 
-```yaml
-logging:
-  path: /tmp/memory_log
-  level: info
+        SessionDB:
+          uri: sqlitetest.db
 
-long_term_memory:
-  derivative_deriver: sentence
-  metadata_prefix: "[$timestamp] $producer_id: "
-  embedder: my_embedder_id
-  reranker: my_reranker_id
-  vector_graph_store: my_storage_id
-
-SessionDB:
-  uri: sqlitetest.db
-
-Model:
-  testmodel:
-    model_vendor: openai
-    model_name: "gpt-4o-mini"
-    api_key: "YOUR_VALID_OPENAI_API_KEY"
+        Model:
+          testmodel:
+            model_vendor: openai
+            model_name: "gpt-4o-mini"
+            api_key: "YOUR_VALID_OPENAI_API_KEY"
     
-storage:
-  my_storage_id:
-    vendor_name: neo4j
-    host: memmachine-neo4j-custom
-    port: 7687
-    user: neo4j
-    password: YOUR_NEO4J_PASSWORD
+        storage:
+          my_storage_id:
+            vendor_name: neo4j
+            host: memmachine-neo4j-custom
+            port: 7687
+            user: neo4j
+            password: YOUR_NEO4J_PASSWORD
 
-sessionMemory:
-  model_name: testmodel
-  message_capacity: 500
-  max_message_length: 16000
-  max_token_num: 8000
+        sessionMemory:
+          model_name: testmodel
+          message_capacity: 500
+          max_message_length: 16000
+          max_token_num: 8000
 
-embedder:
-  my_embedder_id:
-    model_name: "text-embedding-3-small"
-    api_key: "YOUR_VALID_OPENAI_API_KEY"
+        embedder:
+          my_embedder_id:
+            model_name: "text-embedding-3-small"
+            api_key: "YOUR_VALID_OPENAI_API_KEY"
 
-reranker:
-  my_reranker_id:
-    type: "rrf-hybrid"
-    reranker_ids:
-      - id_ranker_id
-      - bm_ranker_id
-      - ce_ranker_id
-  id_ranker_id:
-    type: "identity"
-  bm_ranker_id:
-    type: "bm25"
-  ce_ranker_id:
-    type: "cross-encoder"
-    model_name: "cross-encoder/qnli-electra-base"
-```
+        reranker:
+          my_reranker_id:
+            type: "rrf-hybrid"
+          reranker_ids:
+            - id_ranker_id
+            - bm_ranker_id
+            - ce_ranker_id
+          id_ranker_id:
+            type: "identity"
+          bm_ranker_id:
+            type: "bm25"
+          ce_ranker_id:
+            type: "cross-encoder"
+            model_name: "cross-encoder/qnli-electra-base"
+      ```
+    <Warning> Replace all instances of `YOUR_VALID_OPENAI_API_KEY_HERE` with your valid OpenAI API key.</Warning>
+</Accordion>
+<Accordion title="Step 5: Verify Setup">
+  1. Check Neo4j is running:
+    ```bash
+    docker ps | grep neo4j
+    ```
+  2. Test MemMachine API:
+    ```bash
+    curl http://localhost:8080/docs
+    ```
+</Accordion>
+</AccordionGroup>
 
-**Important**: Replace all instances of `YOUR_VALID_OPENAI_API_KEY_HERE` with your valid OpenAI API key.
-
-#### Step 4: Create Docker Compose File
-The `docker-compose.yml` file should contain:
-
-```yaml
-services:
-  # Neo4j database for graph storage
-  neo4j:
-    image: neo4j:ubi9
-    container_name: memmachine-neo4j-custom
-    restart: unless-stopped
-    ports:
-      - "7474:7474"  # HTTP
-      - "7473:7473"  # HTTPS
-      - "7687:7687"  # Bolt
-    environment:
-      NEO4J_EDITION: community
-      NEO4J_AUTH: neo4j/YOUR_NEO4J_PASSWORD
-      NEO4J_server_bolt_thread__pool__max__size: 2000
-      NEO4J_server_memory_heap_initial__size: 512m
-      NEO4J_server_memory_heap_max__size: 1G
-    volumes:
-      - neo4j_data:/data
-      - neo4j_logs:/logs
-    healthcheck:
-      test: ["CMD", "cypher-shell", "-u", "neo4j", "-p", "YOUR_NEO4J_PASSWORD", "RETURN 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-      start_period: 30s
-
-volumes:
-  neo4j_data:
-    driver: local
-  neo4j_logs:
-    driver: local
-
-networks:
-  default:
-    name: memmachine-network
-```
-
-#### Step 5: Build and Start Services
-
-1. Build the MemMachine Docker image:
-```bash
-docker build -t memmachine .
-```
-
-2. Start Neo4j:
-```bash
-docker compose up neo4j -d
-```
-3. PostgreSQL Setup 
-For session management, you can use PostgreSQL:
-
- - **Install PostgreSQL:**
-   ```bash
-   # Ubuntu/Debian
-   sudo apt-get install postgresql postgresql-contrib
-   
-   # macOS
-   brew install postgresql
-   
-   # Windows
-   # Download from postgresql.org
-   ```
- -  **Create database:**
-   ```sql
-   CREATE DATABASE 'your_database';
-   CREATE USER 'your_user' WITH PASSWORD 'your_password';
-   GRANT ALL PRIVILEGES ON DATABASE 'your_database' TO 'your_user';
-   ```
-
-4. Run MemMachine with custom configuration:
-```bash
-docker run -p 8080:8080 --env-file .env -v $(pwd)/configuration.yml:/app/configuration.yml:ro --network memmachine-network memmachine
-```
-
-#### Step 6: Verify Setup
-
- 1. Check Neo4j is running:
-```bash
-docker ps | grep neo4j
-```
-
-2. Test MemMachine API:
-```bash
-curl http://localhost:8080/docs
-```
-
-### Method 2: Python Package Installation
-
-1. **Install using pip:**
-   ```bash
-   pip install memmachine
-   ```
-
-2. **Or install from source:**
-   ```bash
-   git clone https://github.com/MemMachine/MemMachine.git
-   cd MemMachine
-   pip install -e .
-   ```
-### Method 3: Development Installation
-
-For development and contributing:
-
-1. **Clone the repository:**
+### Method 3: Use GitHub (Source)
+For Development and Contribution, you can clone the repository and set up the environment manually.
+<AccordionGroup>
+  <Accordion title="Step 1: Clone the Repository and Install Using UV">
+  <Steps>
+   <Step title="Clone the repository">
    ```bash
    git clone https://github.com/MemMachine/MemMachine.git
    cd MemMachine
    ```
-
-2. **Install using uv (recommended):**
+  </Step>
+  <Step title="Install using uv (recommended)">
    ```bash
    # Install uv if you haven't already
    curl -LsSf https://astral.sh/uv/install.sh | sh
-   
+   ```
+   ```bash
    # Install dependencies
    uv sync
    ```
+   </Step>
+   </Steps>
+  </Accordion>
+  <Accordion title="Step 2: Start and Configure Databases">
+  You will need to create your [Neo4j](http://hub.docker.com/_/neo4j) and [PostgreSQL](https://hub.docker.com/_/postgres) databases before starting MemMachine, as MemMachine requires information from these databases for it's configuration files.
+   <Steps> 
+    <Step title="Start Neo4j">
+     ```bash
+     docker compose up neo4j -d
+     ```
+    </Step>
+    <Step title="PostgreSQL Setup"> 
+    For session management, you can use PostgreSQL:
+    - **Install PostgreSQL:**
+    ```bash
+      # Ubuntu/Debian
+      sudo apt-get install postgresql postgresql-contrib
+   
+      # macOS
+      brew install postgresql
+   
+      # Windows
+      # Download from postgresql.org
+    ```
+    -  **Create database:**
+     ```sql
+    CREATE DATABASE 'your_database';
+    CREATE USER 'your_user' WITH PASSWORD 'your_password';
+    GRANT ALL PRIVILEGES ON DATABASE 'your_database' TO 'your_user';
+    ```
+    </Step>
+  </Steps>
+  </Accordion>
+  <Accordion title="Step 3: Create Environment File">
+      Create a `.env` file in the project root with your database credentials (generated in Step 2) and OpenAI API key:
+        ```bash
+        # cat > .env << 'EOF'
+          NEO4J_USERNAME=neo4j
+          NEO4J_PASSWORD=YOUR_NEO4J_PASSWORD
+          NEO4J_URI="bolt://localhost:7687"
 
-3. **Run the app:**
-```bash
-   python -m server.app
-   ```
+          # Postgres database configuration
+          POSTGRES_HOST=YOUR_POSTGRES_HOST
+          POSTGRES_PORT=5432
+          POSTGRES_USER=YOUR_POSTGRES_USER
+          POSTGRES_PASS=YOUR_POSTGRES_PASSWORD
+          POSTGRES_PASSWORD=YOUR_POSTGRES_PASSWORD
+          POSTGRES_DB=YOUR_POSTGRES_DATABASE
+
+          MCP_BASE_URL==http://127.0.0.1:8080
+          GATEWAY_URL=http://localhost:8080
+          FAST_MCP_LOG_LEVEL=INFO
+          MEMORY_CONFIG=/app/configuration.yml
+          OPENAI_API_KEY="YOUR_VALID_OPENAI_API_KEY"
+          EOF
+          ```
+    <Note> Replace the following placeholders with your actual values </Note>
+        - `YOUR_NEO4J_PASSWORD` - Your Neo4j password
+        - `YOUR_POSTGRES_HOST` - Your PostgreSQL host (e.g., AWS RDS endpoint)
+        - `YOUR_POSTGRES_USER` - Your PostgreSQL username
+        - `YOUR_POSTGRES_PASSWORD` - Your PostgreSQL password
+        - `YOUR_POSTGRES_DATABASE` - Your PostgreSQL database name
+        - `YOUR_VALID_OPENAI_API_KEY` - Your valid OpenAI API key
+  </Accordion>
+  <Accordion title="Step 4: Create Configuration File">
+      The `configuration.yml` file should contain the following content:
+
+        <Note> Replace the following placeholders with your actual values:</Note>
+        - `YOUR_VALID_OPENAI_API_KEY` - Your valid OpenAI API key (used in multiple places)
+        - `YOUR_NEO4J_PASSWORD` - Your Neo4j password (must match the password in .env and docker-compose.yml)
+
+      ```yaml
+        logging:
+          path: /tmp/memory_log
+          level: info
+
+        long_term_memory:
+          derivative_deriver: sentence
+          metadata_prefix: "[$timestamp] $producer_id: "
+          embedder: my_embedder_id
+          reranker: my_reranker_id
+          vector_graph_store: my_storage_id
+
+        SessionDB:
+          uri: sqlitetest.db
+
+        Model:
+          testmodel:
+            model_vendor: openai
+            model_name: "gpt-4o-mini"
+            api_key: "YOUR_VALID_OPENAI_API_KEY"
+    
+        storage:
+          my_storage_id:
+            vendor_name: neo4j
+            host: memmachine-neo4j-custom
+            port: 7687
+            user: neo4j
+            password: YOUR_NEO4J_PASSWORD
+
+        sessionMemory:
+          model_name: testmodel
+          message_capacity: 500
+          max_message_length: 16000
+          max_token_num: 8000
+
+        embedder:
+          my_embedder_id:
+            model_name: "text-embedding-3-small"
+            api_key: "YOUR_VALID_OPENAI_API_KEY"
+
+        reranker:
+          my_reranker_id:
+            type: "rrf-hybrid"
+          reranker_ids:
+            - id_ranker_id
+            - bm_ranker_id
+            - ce_ranker_id
+          id_ranker_id:
+            type: "identity"
+          bm_ranker_id:
+            type: "bm25"
+          ce_ranker_id:
+            type: "cross-encoder"
+            model_name: "cross-encoder/qnli-electra-base"
+      ```
+    <Warning> Replace all instances of `YOUR_VALID_OPENAI_API_KEY_HERE` with your valid OpenAI API key.</Warning>
+</Accordion>
+<Accordion title="Step 5: Verify Setup">
+  1. Check Neo4j is running:
+    ```bash
+    docker ps | grep neo4j
+    ```
+  2. Test MemMachine API:
+    ```bash
+    curl http://localhost:8080/docs
+    ```
+</Accordion>
+</AccordionGroup>
+
+
+### Hello World Examples
+<Tabs>
+  <Tab title="RESTful API" icon="server">
+    ### Hello World: A Guide to the MemMachine RESTful API
+
+This guide provides a quick and simple way to get started with the MemMachine RESTful API using `curl` commands.
+
+### Prerequisites
+
+First, make sure your FastAPI application is running. Open your terminal, navigate to the directory containing your `app.py` file, and run the following command. The output should confirm that the server is listening for requests.
+
+```
+uvicorn app:app --reload
+```
+<Steps>
+<Step title="Get All Sessions">
+
+The simplest way to start is by checking for existing sessions. This `GET` request doesn't require any data. You will likely see an empty list since no sessions have been created yet.
+
+```
+curl [http://127.0.0.1:8000/v1/sessions](http://127.0.0.1:8000/v1/sessions)
+```
+</Step>
+<Step title="Add a New Memory">
+
+This is where you'll create your first memory episode. The `POST /v1/memories` endpoint requires a JSON body that includes session details, a producer, a recipient, and the content of the memory itself.
+
+**Command:**
+
+```
+curl -X POST "[http://127.0.0.1:8000/v1/memories](http://127.0.0.1:8000/v1/memories)" \
+-H "Content-Type: application/json" \
+-d '{
+  "session": {
+    "group_id": "test_group",
+    "agent_id": ["test_agent"],
+    "user_id": ["test_user"],
+    "session_id": "session_123"
+  },
+  "producer": "test_user",
+  "produced_for": "test_agent",
+  "episode_content": "This is a simple test memory.",
+  "episode_type": "message",
+  "metadata": {}
+}'
+```
+
+**Expected Output:**
+
+You will receive an empty `200 OK` response, confirming the memory was added successfully.
+</Step>
+<Step title="Search for the Memory">
+
+Now that a memory has been added, let's try to find it. The `POST /v1/memories/search` endpoint also requires a JSON body to specify the search query and session.
+
+**Command:**
+
+```
+curl -X POST "[http://127.0.0.1:8000/v1/memories/search](http://127.0.0.1:8000/v1/memories/search)" \
+-H "Content-Type: application/json" \
+-d '{
+  "session": {
+    "group_id": "test_group",
+    "agent_id": ["test_agent"],
+    "user_id": ["test_user"],
+    "session_id": "session_123"
+  },
+  "query": "simple test memory",
+  "filter": {},
+  "limit": 5
+}'
+```
+
+**Expected Output:**
+
+You should see a `200 OK` response containing the search results, including the memory episode you just added. The output will be formatted as a JSON object, confirming that your memory was successfully found.
+</Step>
+<Step title=" Delete the Session Data">
+
+To clean up after your test, you can use the `DELETE /v1/memories` endpoint. This also requires a JSON body to specify which session's data should be removed.
+
+**Command:**
+
+```
+curl -X DELETE "[http://127.0.0.1:8000/v1/memories](http://127.0.0.1:8000/v1/memories)" \
+-H "Content-Type: application/json" \
+-d '{
+  "session": {
+    "group_id": "test_group",
+    "agent_id": ["test_agent"],
+    "user_id": ["test_user"],
+    "session_id": "session_123"
+  }
+}'
+```
+</Step>
+</Steps>
+  </Tab>
+  <Tab title="MCP Server" icon="terminal">
+    ### Hello World: A Guide to the MemMachine MCP Server API
+
+This guide provides a quick and simple way to get started with the MemMachine Model Content Protocol (MCP) Server API using `curl` commands.
+
+### Prerequisites
+
+First, ensure your FastAPI application is running. Open your terminal, navigate to the directory containing your `app.py` file, and run the following command. The output should confirm that the server is listening for requests.
+
+```
+uvicorn app:app --reload
+```
+<Steps>
+<Step title="Get All Sessions">
+
+The simplest way to start is by checking for existing sessions. This is an MCP **resource**, which returns a list of all available sessions.
+
+**Command:**
+
+```
+curl [http://127.0.0.1:8000/mcp/sessions](http://127.0.0.1:8000/mcp/sessions)
+```
+
+**Expected Output:**
+
+You will likely see an empty list since no sessions have been created yet.
+</Step>
+<Step title="Add a New Memory">
+
+This is where you'll use an MCP **tool** to create your first memory episode. The `mcp_add_session_memory` tool is invoked with a `POST` request to its dedicated endpoint.
+
+**Command:**
+
+```
+curl -X POST "[http://127.0.0.1:8000/mcp/add_session_memory](http://127.0.0.1:8000/mcp/add_session_memory)" \
+-H "Content-Type: application/json" \
+-d '{
+  "session": {
+    "group_id": "test_group",
+    "agent_id": ["test_agent"],
+    "user_id": ["test_user"],
+    "session_id": "session_123"
+  },
+  "producer": "test_user",
+  "produced_for": "test_agent",
+  "episode_content": "This is a simple test memory.",
+  "episode_type": "message",
+  "metadata": {}
+}'
+```
+
+**Expected Output:**
+
+You will receive a JSON response confirming the status. A status of `0` indicates success.
+
+```
+{
+  "status": 0,
+  "error_msg": ""
+}
+```
+</Step>
+<Step title="Search for the Memory">
+
+Now that a memory has been added, let's use another MCP **tool** to find it. The `mcp_search_session_memory` tool is designed for this purpose.
+
+**Command:**
+
+```
+curl -X POST "[http://127.0.0.1:8000/mcp/search_session_memory](http://127.0.0.1:8000/mcp/search_session_memory)" \
+-H "Content-Type: application/json" \
+-d '{
+  "session": {
+    "group_id": "test_group",
+    "agent_id": ["test_agent"],
+    "user_id": ["test_user"],
+    "session_id": "session_123"
+  },
+  "query": "simple test memory",
+  "filter": {},
+  "limit": 5
+}'
+```
+
+**Expected Output:**
+
+You should see a `200 OK` response containing the search results, including the memory episode you just added.
+</Step>
+<Step title="Delete the Session Data">
+
+To clean up after your test, use the `mcp_delete_session_data` **tool**. This is a great way to ensure your database remains clean.
+
+**Command:**
+
+```
+curl -X POST "[http://127.0.0.1:8000/mcp/delete_session_data](http://127.0.0.1:8000/mcp/delete_session_data)" \
+-H "Content-Type: application/json" \
+-d '{
+  "session": {
+    "group_id": "test_group",
+    "agent_id": ["test_agent"],
+    "user_id": ["test_user"],
+    "session_id": "session_123"
+  }
+}'
+```
+
+**Expected Output:**
+
+You will receive a JSON response confirming the status of the deletion. A status of `0` indicates that the data was deleted successfully.
+
+```
+{
+  "status": 0,
+  "error_msg": ""
+}
+```
+</Step>
+</Steps>
+  </Tab>
+  <Tab title="PythonSDK" icon="python">
+    Below is a short python script that demonstrates how to use both Episodic Memory and Profile Memory from the MemMachine Python SDK.
+
+    <Note>Make sure to have your `.env` file and `cfg.yml` configuration file set up as described in the installation steps.</Note>
+    
+  ```python HelloWorld.py expandable
+    from dotenv import load_dotenv
+    import os
+    from importlib import import_module
+
+    from memmachine.common.embedder.openai_embedder import OpenAIEmbedder
+    from memmachine.common.language_model.openai_language_model import (
+      OpenAILanguageModel,
+    )
+    from memmachine.episodic_memory.data_types import ContentType
+    from memmachine.episodic_memory.episodic_memory import (
+      AsyncEpisodicMemory,
+      EpisodicMemory,
+    )
+    from memmachine.episodic_memory.episodic_memory_manager import (
+      EpisodicMemoryManager,
+    )
+    from memmachine.profile_memory.profile_memory import ProfileMemory
+
+    async def episodic_memory_test(config_path: str):
+      manager = EpisodicMemoryManager.create_episodic_memory_manager(config_path)
+      inst: EpisodicMemory = await manager.get_episodic_memory_instance(
+          group_id="test_group",
+          agent_id=["test_agent"],
+          user_id=["test_user1", "test_user2"],
+          session_id="test_session",
+      )
+      async with AsyncEpisodicMemory(inst) as inst:
+          success = await inst.add_memory_episode(
+              producer="test_user1",
+              produced_for="test_user2",
+              episode_content="test_content",
+              episode_type="test_type",
+              content_type=ContentType.STRING
+          )
+          print(success)
+          success = await inst.add_memory_episode(
+            producer="test_user2",
+            produced_for="test_user1",
+            episode_content="test_content2",
+            episode_type="test_type",
+            content_type=ContentType.STRING
+        )
+        print(success)
+        res = await inst.query_memory("test_query")
+        print(res)
+
+        usr_filter = {"producer": "test_user1"}
+        res = await inst.query_memory("test_query", filter=usr_filter)
+        print(res)
+
+  async def profile_memory_test():
+    load_dotenv()
+    api_key = os.getenv("OPENAI_API_KEY")
+    model_name = "gpt-4.1-mini"
+    llm_model = OpenAILanguageModel({"api_key": api_key, "model": model_name})
+    embeddings = OpenAIEmbedder({"api_key": api_key})
+    profile_memory = ProfileMemory(
+        model=llm_model,
+        embeddings=embeddings,
+        db_config={
+            "host": os.getenv("POSTGRES_HOST"),
+            "port": os.getenv("POSTGRES_PORT"),
+            "user": os.getenv("POSTGRES_USER"),
+            "password": os.getenv("POSTGRES_PASS"),
+            "database": os.getenv("POSTGRES_DB"),
+        },
+        prompt_module=import_module(".prompt.profile_prompt", __package__),
+    )
+    await profile_memory.add_persona_message(
+            str("Persona message"),
+            {},
+            user_id="user1",
+        )
+    
+    await profile_memory.semantic_search("test_query", user_id="user1")
 
 
 
-### Database Configuration Summary
-- **PostgreSQL**: Your PostgreSQL database (configured via POSTGRES_HOST in .env)
-- **Neo4j**: Local Docker container (localhost:7687)
-- **MemMachine API**: http://localhost:8080
+  async def main():
+    await episodic_memory_test("cfg.yml")
+    await profile_memory_test()
+
+  if __name__ == "__main__":
+    import asyncio
+    asyncio.run(main())
+
+    ```
+  </Tab>
+</Tabs>
 
 ### Troubleshooting
 
