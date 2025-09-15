@@ -58,9 +58,7 @@ services:
 
   # MemMachine application
   memmachine:
-    build:
-      context: .
-      dockerfile: Dockerfile
+    image: memmachine/memmachine
     container_name: memmachine-app
     restart: unless-stopped
     ports:
