@@ -48,14 +48,14 @@ check_docker() {
 check_env_file() {
     if [ ! -f ".env" ]; then
         print_warning ".env file not found. Creating from template..."
-        if [ -f "env.example" ]; then
-            cp env.example .env
-            print_success "Created .env file from env.example"
+        if [ -f "sample_configs/env.docercompose" ]; then
+            cp sample_configs/env.docercompose .env
+            print_success "Created .env file from sample_configs/env.docercompose"
             print_warning "Please edit .env file with your configuration before continuing"
             print_warning "Especially set your OPENAI_API_KEY"
             read -p "Press Enter to continue after editing .env file..."
         else
-            print_error "env.example file not found. Please create .env file manually."
+            print_error "sample_configs/env.docercompose file not found. Please create .env file manually."
             exit 1
         fi
     else
@@ -78,9 +78,9 @@ check_required_env() {
     fi
 }
 
-# Build and start services
+# Pull and start services
 start_services() {
-    print_status "Building and starting MemMachine services..."
+    print_status "Pulling and starting MemMachine services..."
     
     # Use docker-compose or docker compose based on what's available
     if command -v docker-compose &> /dev/null; then
@@ -89,8 +89,8 @@ start_services() {
         COMPOSE_CMD="docker compose"
     fi
     
-    # Build and start services
-    $COMPOSE_CMD up -d --build
+    # Pull and start services (no build needed since we use pre-built image)
+    $COMPOSE_CMD up -d
     
     print_success "Services started successfully!"
 }
