@@ -15,12 +15,13 @@ is responsible for:
 """
 
 import asyncio
+from contextlib import asynccontextmanager
 import logging
 from typing import Any
 
 import yaml
 
-from .data_types import MemoryContext, SessionInfo
+from .data_types import MemoryContext, SessionInfo, GroupConfiguration
 from .episodic_memory import EpisodicMemory
 from .prompt.summary_prompt import (
     episode_summary_system_prompt,
@@ -69,6 +70,16 @@ class EpisodicMemoryManager:
 
         sessiondb = config.get("sessiondb", {})
         self._session_manager = SessionManager(sessiondb)
+
+    @classmethod
+    async def reset(cls):
+        """
+        Reset the singleton instance.
+        """
+        if cls._instance is None:
+            return
+        await cls._instance.shut_down()
+        cls._instance = None
 
     @classmethod
     def create_episodic_memory_manager(cls, config_path: str):
@@ -169,12 +180,20 @@ class EpisodicMemoryManager:
                 result[k] = v
         return result
 
+    @property
+    def session_manager(self) -> SessionManager:
+        """Get the manager's session manager."""
+        return self._session_manager
+
+    @property
+    def configuration(self) -> dict:
+        """Get the manager's configuration."""
+        return self._memory_config
+
     async def close_episodic_memory_instance(
         self,
-        group_id: str | None = None,
-        agent_id: list[str] | None = None,
-        user_id: list[str] | None = None,
-        session_id: str = "",
+        group_id: str,
+        session_id: str,
     ) -> bool:
         """
         Closes an EpisodicMemory instance for a specific context.
@@ -188,22 +207,187 @@ class EpisodicMemoryManager:
         Returns:
             True if the instance was successfully closed, False otherwise.
         """
-        inst = await self.get_episodic_memory_instance(
-            group_id, agent_id, user_id, session_id
-        )
+        # Validate that the context is sufficiently defined.
+        if group_id is None or len(group_id) < 1:
+            raise ValueError("Invalid group id")
+        if session_id is None or len(session_id) < 1:
+            raise ValueError("Invalid session id")
+
+        inst = None
+        hash_str = group_id + "_" + session_id
+        async with self._lock:
+            if hash_str in self._context_memory:
+                inst = self._context_memory[hash_str]
         if inst is None:
             return False
         await inst.close()
-        await inst.close()
         return True
+
+    async def create_group(self, group_id: str,
+                           agent_ids: list[str] | None,
+                           user_ids: list[str] | None):
+        """
+        Creates a new group.
+        Args:
+            group_id: The ID of the group
+            agent_ids: A list of agent IDs of the group
+            user_ids: A lit of user IDs of the group
+        """
+        if len(group_id) < 1:
+            raise ValueError("Invalid group ID")
+        agent_ids = [] if agent_ids is None else agent_ids
+        user_ids = [] if user_ids is None else user_ids
+        if len(agent_ids) < 1 and len(user_ids) < 1:
+            raise ValueError(
+                "The group must have at least one user ID or agent ID"
+            )
+        async with self._lock:
+            self._session_manager.create_new_group(
+                group_id,
+                agent_ids,
+                user_ids
+            )
+
+    async def create_episodic_memory_instance(
+            self,
+            group_id: str,
+            session_id: str,
+            configuration: dict | None = None
+    ) -> EpisodicMemory:
+        """
+        Creates EpisodicMemory for a new session.
+        If the group does not exist, this function fails.
+        If the session already exists, this function fails.
+
+        Args:
+            group_id (str): The ID of the group for this session.
+            session_id (str): The unique identifier for the session.
+            configuration (dict | None): A dictionary for session
+            configuration.
+
+        Returns:
+            New EpisodicMemory instance.
+        """
+        async with self._lock:
+            group = self._session_manager.retrieve_group(group_id)
+            if group is None:
+                raise ValueError(f"""Failed to get the group {group_id}""")
+            configuration = {} if configuration is None else configuration
+            configuration = self._merge_configs(
+                self._memory_config, configuration
+            )
+            session = self._session_manager.create_session(
+                group_id,
+                session_id,
+                configuration
+            )
+            hash_str = group_id + "_" + session_id
+            context = MemoryContext(
+                group_id=group_id,
+                agent_id=set(group.agent_list),
+                user_id=set(group.user_list),
+                session_id=session_id,
+                hash_str=hash_str,
+            )
+            final_config = self._merge_configs(
+                self._memory_config, session.configuration or {}
+            )
+            memory_instance = EpisodicMemory(
+                self, final_config, context
+            )
+            self._context_memory[hash_str] = memory_instance
+            await memory_instance.reference()
+            return memory_instance
+
+    async def open_episodic_memory_instance(
+        self,
+        group_id: str,
+        session_id: str
+    ) -> EpisodicMemory:
+        """
+        Opens an EpisodicMemory instance for a specific group and session.
+        Args:
+            group_id: The identifier for the group context.
+            session_id: The identifier for the session context.
+        Returns:
+            The EpisodicMemory instance for the specified group and session.
+        """
+        async with self._lock:
+            hash_str = group_id + "_" + session_id
+            if hash_str in self._context_memory:
+                inst = self._context_memory[hash_str]
+                await inst.reference()
+                return inst
+
+            session_info = self._session_manager.open_session(group_id,
+                                                              session_id)
+            context = MemoryContext(
+                group_id=group_id,
+                agent_id=set(session_info.agent_ids),
+                user_id=set(session_info.user_ids),
+                session_id=session_id,
+                hash_str=hash_str,
+            )
+            memory_instance = EpisodicMemory(
+                self,
+                session_info.configuration,
+                context
+            )
+            self._context_memory[hash_str] = memory_instance
+            await memory_instance.reference()
+            return memory_instance
+
+    @asynccontextmanager
+    async def async_open_episodic_memory_instance(
+        self,
+        group_id: str,
+        session_id: str,
+    ):
+        """
+        Retrieves an AsyncEpisodicMemory instance for a specific
+        context.
+        Args:
+            group_id: The identifier for the group context.
+            session_id: The identifier for the session context.
+        """
+        inst = await self.open_episodic_memory_instance(
+            group_id, session_id
+        )
+        yield inst
+        if inst is not None:
+            await inst.close()
+
+    @asynccontextmanager
+    async def async_create_episodic_memory_instance(
+        self,
+        group_id: str,
+        session_id: str,
+        configuration: dict | None = None
+    ):
+        """
+        Creates an AsyncEpisodicMemory instance for a specific
+        context.
+        Args:
+            group_id: The identifier for the group context.
+            session_id: The identifier for the session context.
+            configuration: The session specific configuration
+        """
+        inst = await self.create_episodic_memory_instance(
+            group_id,
+            session_id,
+            configuration
+        )
+        yield inst
+        if inst is not None:
+            await inst.close()
 
     async def get_episodic_memory_instance(
         self,
-        group_id: str | None = None,
+        group_id: str,
         agent_id: list[str] | None = None,
         user_id: list[str] | None = None,
         session_id: str = "",
-        config_path: str | None = None,
+        configuration: dict | None = None,
     ) -> EpisodicMemory | None:
         # pylint: disable=too-many-arguments
         # pylint: disable=too-many-positional-arguments
@@ -219,41 +403,29 @@ class EpisodicMemoryManager:
             agent_id: The identifier for the list of agent context.
             user_id: The identifier for the list of user context.
             session_id: The identifier for the session context.
-            config_path: Optional path to a session-specific config file to
-            override defaults.
+            configuration: session specific configuration.
 
         Returns:
             The EpisodicMemory instance for the specified context.
         """
-        config = {}
-        if config_path is not None:
-            with open(config_path, "r", encoding="utf-8") as f:
-                config = yaml.safe_load(f)
+        if configuration is None:
+            configuration = {}
 
         # Validate that the context is sufficiently defined.
         if user_id is None:
             user_id = []
         if agent_id is None:
             agent_id = []
-        if group_id is None and len(user_id) < 1 and len(agent_id) < 1:
-            raise ValueError("Invalid context")
-        if session_id is None:
+        if len(user_id) < 1 and len(agent_id) < 1:
+            raise ValueError("The group must have at least one agent or user")
+        if group_id is None or len(group_id) < 1:
+            group_id = "_".join(user_id).join(agent_id)
+        if session_id is None or len(session_id) < 1:
             raise ValueError("Invalid session id")
         if len(user_id) < 1:
             user_id = agent_id
 
-        # If group_id is not provided, create a composite ID from user IDs.
-        if group_id is None or len(group_id) < 1:
-            group_id = "".join(user_id).join(agent_id)
-
-        hash_str = (
-            group_id
-            + "_".join(agent_id)
-            + "_".join(user_id)
-            + "_"
-            + session_id
-        )
-
+        hash_str = group_id + "_" + session_id
         # Create the unique memory context object.
         memory_context = MemoryContext(
             group_id=group_id,
@@ -267,7 +439,6 @@ class EpisodicMemoryManager:
             # If an instance for this context already exists, increment its
             # reference count and return it.
             if hash_str in self._context_memory:
-                print("Use existing session")
                 instance = self._context_memory[hash_str]
                 get_it = await instance.reference()
                 if get_it:
@@ -275,16 +446,19 @@ class EpisodicMemoryManager:
                 # The instance was closed between checking and referencing.
                 logger.error("Failed get instance reference")
                 return None
-            print("Create new session")
             # If no instance exists, create a new one.
-            info = self._session_manager.create_session_if_not_exist(
-                group_id, agent_id, user_id, session_id, config
-            )
-
-            # Merge the base config with the session-specific config.
-            final_config = self._merge_configs(
-                self._memory_config, info.configuration or {}
-            )
+            try:
+                info = self._session_manager.open_session(group_id, session_id)
+                final_config = info.configuration
+            except ValueError:
+                if configuration is None:
+                    configuration = {}
+                final_config = self._merge_configs(
+                    self._memory_config, configuration
+                )
+                info = self._session_manager.create_session_if_not_exist(
+                    group_id, agent_id, user_id, session_id, final_config
+                )
 
             # Create and store the new memory instance.
             memory_instance = EpisodicMemory(
@@ -316,12 +490,12 @@ class EpisodicMemoryManager:
                     "Context memory %s does not exist\n", context.hash_str
                 )
 
-    def shut_down(self):
+    async def shut_down(self):
         """
         Close all sessions and clean up resources.
         """
-        for keys in self._context_memory.keys():
-            self._context_memory[keys].close()
+        for _, inst in self._context_memory.items():
+            await inst.close()
         del self._session_manager
         self._session_manager = None
 
@@ -369,3 +543,16 @@ class EpisodicMemoryManager:
             A list of SessionInfo objects for the given group.
         """
         return self._session_manager.get_session_by_group(group_id)
+
+    def get_group_configuration(
+            self,
+            group_id: str
+    ) -> GroupConfiguration | None:
+        """
+        Retrieve one group information
+        Args:
+            group_id: The ID of the group
+        Return:
+            The group information
+        """
+        return self._session_manager.retrieve_group(group_id)
