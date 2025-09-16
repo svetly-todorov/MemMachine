@@ -17,3 +17,8 @@ python locomo_evaluate.py --data-path results.json --target-path evaluation_metr
 ```sh
 python generate_scores.py
 ```
+
+## Delete data
+```sh
+python locomo_delete.py --data-path path/to/locomo10.json
+```
