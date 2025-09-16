@@ -24,6 +24,7 @@
             "pages": [
               "getting_started/introduction",
               "getting_started/quickstart",
+              "getting_started/benchmarks",
               "getting_started/faqs"
             ]
           },
