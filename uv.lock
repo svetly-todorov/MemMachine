@@ -723,9 +723,13 @@ dependencies = [
     { name = "pydantic" },
     { name = "pyyaml" },
     { name = "rank-bm25" },
-    { name = "sentence-transformers" },
     { name = "sqlalchemy" },
     { name = "uvicorn" },
+]
+
+[package.optional-dependencies]
+gpu = [
+    { name = "sentence-transformers" },
 ]
 
 [package.metadata]
@@ -742,10 +746,11 @@ requires-dist = [
     { name = "pydantic", specifier = ">=2.11.7" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "rank-bm25", specifier = ">=0.2.2" },
-    { name = "sentence-transformers", specifier = ">=5.1.0" },
+    { name = "sentence-transformers", marker = "extra == 'gpu'", specifier = ">=5.1.0" },
     { name = "sqlalchemy", specifier = ">=2.0.43" },
     { name = "uvicorn", specifier = ">=0.35.0" },
 ]
+provides-extras = ["gpu"]
 
 [[package]]
 name = "more-itertools"
