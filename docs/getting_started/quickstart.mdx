@@ -23,7 +23,7 @@ This method is recommended for most users.
   <Accordion title="Step 1: Have Docker and Docker Compose Installed">
       Make sure that you have [Docker](https://docs.docker.com/engine/install/) and [Docker Compose](https://docs.docker.com/compose/install/) installed on your machine.
   </Accordion>
-  <Accordion title="Step 2: Download MemMachine.git and Run the Script">
+  <Accordion title="Step 2: Download MemMachine and Run the Script">
       Download MemMachine.git from GitHub, navigate to the project directory, and run the `start-docker.sh` script:
         ```bash
         git clone https://github.com/MemMachine/MemMachine.git
@@ -47,24 +47,25 @@ This method is recommended for users who want to integrate MemMachine into an ex
   You will need to create your [Neo4j](http://hub.docker.com/_/neo4j) and [PostgreSQL](https://hub.docker.com/_/postgres) databases before starting MemMachine, as MemMachine requires information from these databases for it's configuration files.
    <Steps> 
     <Step title="Start Neo4j">
-     ```bash
-     docker compose up neo4j -d
+     Check out the [Neo4j Docker Hub](http://hub.docker.com/_/neo4j) page for installation instructions.  Make sure your Neo4j instance is configured with the following settings:
+      ```yaml
+       vendor_name: neo4j
+        host: localhost # If using docker-compose, host: neo4j
+        port: 7687
+        user: neo4j
+        password: neo4j_password
      ```
+      - Start Neo4j with:
+     ```bash
+      docker compose up neo4j -d
+      ```
+      - Verify Neo4j is running:
+       ```bash
+      docker ps | grep neo4j
+      ```
     </Step>
     <Step title="PostgreSQL Setup"> 
-    For session management, you can use PostgreSQL:
-    - **Install PostgreSQL:**
-    ```bash
-      # Ubuntu/Debian
-      sudo apt-get install postgresql postgresql-contrib
-   
-      # macOS
-      brew install postgresql
-   
-      # Windows
-      # Download from postgresql.org
-    ```
-    -  **Create database:**
+    For session management, you can use PostgreSQL.  To install PostgreSQL, check out the [PostgreSQL Docker Hub](https://hub.docker.com/_/postgres) page.  Then, follow these steps to configure your PostgreSQL database:
      ```sql
     CREATE DATABASE 'your_database';
     CREATE USER 'your_user' WITH PASSWORD 'your_password';
@@ -168,15 +169,30 @@ This method is recommended for users who want to integrate MemMachine into an ex
       ```
     <Warning> Replace all instances of `YOUR_VALID_OPENAI_API_KEY_HERE` with your valid OpenAI API key.</Warning>
 </Accordion>
-<Accordion title="Step 5: Verify Setup">
-  1. Check Neo4j is running:
-    ```bash
-    docker ps | grep neo4j
-    ```
-  2. Test MemMachine API:
-    ```bash
-    curl http://localhost:8080/docs
-    ```
+<Accordion title="Step 5: Start MemMachine">
+Before your very first run, you'll need to sync the profile schema. Make sure you run this command from the directory where you installed memmachine.
+  ```bash
+  memmachine-sync-profile-schema
+  ```
+  Then start the server with:
+  ```bash
+  docker run \
+  --name neo4j \
+  -p7474:7474 -p7687:7687 \
+  -d \
+  -e NEO4J_AUTH=neo4j/test123 \
+  neo4j:latest
+```
+
+If you have run MemMachine before, start the server with:
+  ```bash
+  docker run \
+  --name neo4j \
+  -p7474:7474 -p7687:7687 \
+  -d \
+  -e NEO4J_AUTH=neo4j/test123 \
+  neo4j:latest
+  ```
 </Accordion>
 </AccordionGroup>
 
@@ -207,24 +223,25 @@ For Development and Contribution, you can clone the repository and set up the en
   You will need to create your [Neo4j](http://hub.docker.com/_/neo4j) and [PostgreSQL](https://hub.docker.com/_/postgres) databases before starting MemMachine, as MemMachine requires information from these databases for it's configuration files.
    <Steps> 
     <Step title="Start Neo4j">
-     ```bash
-     docker compose up neo4j -d
+     Check out the [Neo4j Docker Hub](http://hub.docker.com/_/neo4j) page for installation instructions.  Make sure your Neo4j instance is configured with the following settings:
+      ```yaml
+       vendor_name: neo4j
+        host: localhost # If using docker-compose, host: neo4j
+        port: 7687
+        user: neo4j
+        password: neo4j_password
      ```
+      - Start Neo4j with:
+     ```bash
+      docker compose up neo4j -d
+      ```
+      - Verify Neo4j is running:
+       ```bash
+      docker ps | grep neo4j
+      ```
     </Step>
     <Step title="PostgreSQL Setup"> 
-    For session management, you can use PostgreSQL:
-    - **Install PostgreSQL:**
-    ```bash
-      # Ubuntu/Debian
-      sudo apt-get install postgresql postgresql-contrib
-   
-      # macOS
-      brew install postgresql
-   
-      # Windows
-      # Download from postgresql.org
-    ```
-    -  **Create database:**
+    For session management, you can use PostgreSQL.  To install PostgreSQL, check out the [PostgreSQL Docker Hub](https://hub.docker.com/_/postgres) page.  Then, follow these steps to configure your PostgreSQL database:
      ```sql
     CREATE DATABASE 'your_database';
     CREATE USER 'your_user' WITH PASSWORD 'your_password';
@@ -328,15 +345,30 @@ For Development and Contribution, you can clone the repository and set up the en
       ```
     <Warning> Replace all instances of `YOUR_VALID_OPENAI_API_KEY_HERE` with your valid OpenAI API key.</Warning>
 </Accordion>
-<Accordion title="Step 5: Verify Setup">
-  1. Check Neo4j is running:
-    ```bash
-    docker ps | grep neo4j
-    ```
-  2. Test MemMachine API:
-    ```bash
-    curl http://localhost:8080/docs
-    ```
+<Accordion title="Step 5: Start MemMachine">
+Before your very first run, you'll need to sync the profile schema. Make sure you run this command from the directory where you installed memmachine.
+  ```bash
+  memmachine-sync-profile-schema
+  ```
+  Then start the server with:
+  ```bash
+  docker run \
+  --name neo4j \
+  -p7474:7474 -p7687:7687 \
+  -d \
+  -e NEO4J_AUTH=neo4j/test123 \
+  neo4j:latest
+```
+
+If you have run MemMachine before, start the server with:
+  ```bash
+  docker run \
+  --name neo4j \
+  -p7474:7474 -p7687:7687 \
+  -d \
+  -e NEO4J_AUTH=neo4j/test123 \
+  neo4j:latest
+  ```
 </Accordion>
 </AccordionGroup>
 
@@ -361,7 +393,7 @@ uvicorn app:app --reload
 The simplest way to start is by checking for existing sessions. This `GET` request doesn't require any data. You will likely see an empty list since no sessions have been created yet.
 
 ```
-curl [http://127.0.0.1:8000/v1/sessions](http://127.0.0.1:8000/v1/sessions)
+curl http://127.0.0.1:8000/v1/sessions
 ```
 </Step>
 <Step title="Add a New Memory">
@@ -371,7 +403,7 @@ This is where you'll create your first memory episode. The `POST /v1/memories` e
 **Command:**
 
 ```
-curl -X POST "[http://127.0.0.1:8000/v1/memories](http://127.0.0.1:8000/v1/memories)" \
+curl -X POST "http://127.0.0.1:8000/v1/memories" \
 -H "Content-Type: application/json" \
 -d '{
   "session": {
@@ -399,7 +431,7 @@ Now that a memory has been added, let's try to find it. The `POST /v1/memories/s
 **Command:**
 
 ```
-curl -X POST "[http://127.0.0.1:8000/v1/memories/search](http://127.0.0.1:8000/v1/memories/search)" \
+curl -X POST "http://127.0.0.1:8000/v1/memories/search" \
 -H "Content-Type: application/json" \
 -d '{
   "session": {
@@ -425,7 +457,7 @@ To clean up after your test, you can use the `DELETE /v1/memories` endpoint. Thi
 **Command:**
 
 ```
-curl -X DELETE "[http://127.0.0.1:8000/v1/memories](http://127.0.0.1:8000/v1/memories)" \
+curl -X DELETE "http://127.0.0.1:8000/v1/memories" \
 -H "Content-Type: application/json" \
 -d '{
   "session": {
@@ -459,7 +491,7 @@ The simplest way to start is by checking for existing sessions. This is an MCP *
 **Command:**
 
 ```
-curl [http://127.0.0.1:8000/mcp/sessions](http://127.0.0.1:8000/mcp/sessions)
+curl http://127.0.0.1:8000/mcp/sessions
 ```
 
 **Expected Output:**
@@ -473,7 +505,7 @@ This is where you'll use an MCP **tool** to create your first memory episode. Th
 **Command:**
 
 ```
-curl -X POST "[http://127.0.0.1:8000/mcp/add_session_memory](http://127.0.0.1:8000/mcp/add_session_memory)" \
+curl -X POST "http://127.0.0.1:8000/mcp/add_session_memory" \
 -H "Content-Type: application/json" \
 -d '{
   "session": {
@@ -508,7 +540,7 @@ Now that a memory has been added, let's use another MCP **tool** to find it. The
 **Command:**
 
 ```
-curl -X POST "[http://127.0.0.1:8000/mcp/search_session_memory](http://127.0.0.1:8000/mcp/search_session_memory)" \
+curl -X POST "http://127.0.0.1:8000/mcp/search_session_memory" \
 -H "Content-Type: application/json" \
 -d '{
   "session": {
@@ -534,7 +566,7 @@ To clean up after your test, use the `mcp_delete_session_data` **tool**. This is
 **Command:**
 
 ```
-curl -X POST "[http://127.0.0.1:8000/mcp/delete_session_data](http://127.0.0.1:8000/mcp/delete_session_data)" \
+curl -X POST "http://127.0.0.1:8000/mcp/delete_session_data" \
 -H "Content-Type: application/json" \
 -d '{
   "session": {
@@ -651,6 +683,11 @@ You will receive a JSON response confirming the status of the deletion. A status
     import asyncio
     asyncio.run(main())
 
+    ```
+
+    Once the file is in your directory, execute it to see the text output it generates:
+    ```bash
+    python3 ./HelloWorld.py
     ```
   </Tab>
 </Tabs>
