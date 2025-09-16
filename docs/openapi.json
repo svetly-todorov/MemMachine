@@ -26,7 +26,7 @@
         "tags": [
           "RESTful APIs"
         ],
-        "summary": "/memories",
+        "summary": "Add Memories",
         "description": "This endpoint first retrieves the appropriate episodic memory instance based on the session context (group, agent, user, session IDs). It then adds the episode to the episodic memory. If successful, it also passes the message to the profile memory for ingestion.",
         "requestBody": {
           "required": true,
@@ -54,7 +54,7 @@
         "tags": [
           "RESTful APIs"
         ],
-        "summary": "/memories",
+        "summary": "Delete Memories",
         "description": "Deletes all data for a particular session.",
         "requestBody": {
           "required": true,
@@ -81,7 +81,7 @@
         "tags": [
           "RESTful APIs"
         ],
-        "summary": "/memories/search",
+        "summary": "Search Memories",
         "description": "Retrieves the relevant episodic memory instance and then performs concurrent searches in both the episodic memory and the profile memory. The results are combined into a single response object.",
         "requestBody": {
           "required": true,
@@ -115,7 +115,7 @@
         "tags": [
           "RESTful APIs"
         ],
-        "summary": "/sessions",
+        "summary": "Get All Sessions",
         "description": "Get all sessions",
         "responses": {
           "200": {
@@ -136,7 +136,7 @@
         "tags": [
           "RESTful APIs"
         ],
-        "summary": "/users/{user_id}/sessions",
+        "summary": "Get User's Sessions",
         "description": "Get all sessions for a particular user",
         "parameters": [
           {
@@ -167,7 +167,7 @@
         "tags": [
           "RESTful APIs"
         ],
-        "summary": "/groups/{group_id}/sessions",
+        "summary": "Get Group's Sessions",
         "description": "Get all sessions for a particular group",
         "parameters": [
           {
@@ -198,7 +198,7 @@
         "tags": [
           "RESTful APIs"
         ],
-        "summary": "/agents/{agent_id}/sessions",
+        "summary": "Get Agent's Sessions",
         "description": "Get all sessions for a particular agent",
         "parameters": [
           {
@@ -229,7 +229,7 @@
         "tags": [
           "MCP Server APIs"
         ],
-        "summary": "add_session_memory",
+        "summary": "Add Memory",
         "description": "Adds a memory episode directly using the session data provided in the `NewEpisode` object. This endpoint is for internal use by LLMs via FastMCP.",
         "requestBody": {
           "required": true,
@@ -264,7 +264,7 @@
         "tags": [
           "MCP Server APIs"
         ],
-        "summary": "search_session_memory",
+        "summary": "Search Memory",
         "description": "Searches both episodic and profile memories for the provided query. This endpoint is for internal use by LLMs via FastMCP.",
         "requestBody": {
           "required": true,
@@ -295,7 +295,7 @@
         "tags": [
           "MCP Server APIs"
         ],
-        "summary": "delete_session_data",
+        "summary": "Delete Session Data",
         "description": "Deletes all data associated with the provided session data. This endpoint is for internal use by LLMs via FastMCP.",
         "requestBody": {
           "required": true,
@@ -330,7 +330,7 @@
         "tags": [
           "MCP Server APIs"
         ],
-        "summary": "delete_data",
+        "summary": "Delete All Data",
         "description": "Deletes all data associated with the session stored in the MCP context. This endpoint is for internal use by LLMs via FastMCP.",
         "requestBody": {
           "required": false,
@@ -363,7 +363,7 @@
         "tags": [
           "MCP Server APIs"
         ],
-        "summary": "sessions",
+        "summary": "Memory Sessions",
         "description": "Retrieves all memory sessions. This endpoint is for internal use by LLMs via FastMCP.",
         "responses": {
           "200": {
@@ -384,7 +384,7 @@
         "tags": [
           "MCP Server APIs"
         ],
-        "summary": "users/{user_id}/sessions",
+        "summary": "Get User's Sessions",
         "description": "Retrieves all sessions for a specific user. This endpoint is for internal use by LLMs via FastMCP.",
         "parameters": [
           {
@@ -415,7 +415,7 @@
         "tags": [
           "MCP Server APIs"
         ],
-        "summary": "groups/{group_id}/sessions",
+        "summary": "Get Group's Sessions",
         "description": "Retrieves all sessions for a specific group. This endpoint is for internal use by LLMs via FastMCP.",
         "parameters": [
           {
@@ -446,7 +446,7 @@
         "tags": [
           "MCP Server APIs"
         ],
-        "summary": "agents/{agent_id}/sessions",
+        "summary": "Get Agent's Sessions",
         "description": "Retrieves all sessions for a specific agent. This endpoint is for internal use by LLMs via FastMCP.",
         "parameters": [
           {

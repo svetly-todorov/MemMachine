@@ -206,7 +206,7 @@ async def http_app_lifespan(application: FastAPI):
     await episodic_memory.shut_down()
 
 mcp = FastMCP("MemMachine")
-mcp_app = mcp.http_app("/mcp")
+mcp_app = mcp.http_app("/")
 
 
 @asynccontextmanager
