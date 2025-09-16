@@ -1,4 +1,8 @@
-# Benchmark Evaluations: A Guide to Testing Your MemMachine
+---
+title: "Benchmark Evaluations"
+description: "A Toolset for Testing Your MemMachine"
+icon: "chart-line"
+---
 
 Welcome to the MemMachine evaluation toolsets! We've created two simple tools to help you measure the performance and response quality of your MemMachine instance. You can use both of these to get a LoCoMo score for your system.
 
@@ -34,31 +38,32 @@ Ready to go? Follow these simple steps.
 
 **C.** Once you have performed step 1 below, you can repeat the benchmark run by performing steps 2-4.  Once are you finished performing the benchmark, run step 5.
 
-### Step 1: Ingest a Conversation
+<Steps>
+<Step title="Ingest a Conversation">
 
 First, let's add conversation data to MemMachine. This only needs to be done once per test run.
 
 ```sh
 python locomo_ingest.py --data-path path/to/locomo10.json
 ```
-
-### Step 2: Search the Conversation
+</Step>
+<Step title="Search the Conversation">
 
 Now, let's search through the data you just added.
 
 ```sh
 python locomo_search.py --data-path path/to/locomo10.json --target-path results.json
 ```
-
-### Step 3: Evaluate the Responses
+</Step>
+<Step title="Evaluate the Responses">
 
 Next, run a LoCoMo evaluation against the search results.
 
 ```sh
 python locomo_evaluate.py --data-path results.json --target-path evaluation_metrics.json
 ```
-
-### Step 4: Generate Your Final Score
+</Step>
+<Step title="Generate Your Final Score">
 
 Once the evaluation is complete, you can generate the final scores.
 
@@ -68,7 +73,8 @@ python generate_scores.py
 
 The output will be a table in your shell showing the mean scores for each category and an overall score.
 
-### Step 5: Clean Up Your Data
+</Step>
+<Step title="Clean Up Your Data">
 
 When you're finished, you may want to delete the test data. This is especially important before running a different benchmark.
 
@@ -80,8 +86,7 @@ When you're finished, you may want to delete the test data. This is especially i
 
 - **For Episodic Profile Agent:** You'll need to run two commands to ensure all data is removed:
 
-For the first command, make sure that you provide your POSTGRES environment variables for each flag:
-
+For the first command, make sure to replace the placeholders with your actual database connection details:
   ```sh
   memmachine-sync-profile-schema --delete
     -- host <HOST> \ # or use environment variable POSTGRES_HOST
@@ -90,9 +95,10 @@ For the first command, make sure that you provide your POSTGRES environment vari
     -- password <PASSWORD> \ # or use environment variable POSTGRES_PASSWORD
     -- database <DATABASE> \ # or use environment variable POSTGRES_DB
 ```
-
   Then, clean up the `locomo` data as well:
 
   ```sh
   python locomo_delete.py --data-path path/to/locomo10.json
   ```
+</Step>
+</Steps>
