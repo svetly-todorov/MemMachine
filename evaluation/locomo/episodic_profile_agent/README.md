@@ -18,3 +18,15 @@ python evals.py --input_file results_IM_$commit_id.json --output_file evaluation
 ```sh
 python generate_scores.py --input_path evaluation.json
 ```
+
+## Delete data
+```sh
+memmachine-sync-profile-schema --delete \
+    -- host <HOST> \ # or use environment variable POSTGRES_HOST
+    -- port <PORT> \ # or use environment variable POSTGRES_PORT
+    -- user <USER> \ # or use environment variable POSTGRES_USER
+    -- password <PASSWORD> \ # or use environment variable POSTGRES_PASSWORD
+    -- database <DATABASE> # or use environment variable POSTGRES_DB
+
+python locomo_delete.py --data-path path/to/locomo10.json
+```
