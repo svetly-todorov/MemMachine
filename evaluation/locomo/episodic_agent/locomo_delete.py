@@ -43,7 +43,7 @@ async def main():
             f"Processing conversation for group {idx} with speakers {speaker_a} and {speaker_b}..."
         )
 
-        group_id = f"{idx}"
+        group_id = f"group_{idx}"
 
         memory = cast(
             EpisodicMemory,
