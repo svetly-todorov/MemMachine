@@ -24,17 +24,26 @@ cp sample_configs/episodic_memory_config.sample configuration.yml
 ```
 
 ### 3. Start Services
+
+#### Option A: Using the MemMachine Compose Script (Recommended)
 Run the startup script:
 ```bash
-./start-docker.sh
+./memmachine-compose.sh
 ```
 
 This will:
 - ✅ Check Docker and Docker Compose availability
 - ✅ Verify .env file and OpenAI API key
+- ✅ Check and create configuration.yml if needed
+- ✅ Validate configuration settings
 - ✅ Pull and start all services (PostgreSQL, Neo4j 5.23, MemMachine)
 - ✅ Wait for all services to be healthy
 - ✅ Display service URLs and connection info
+
+#### Option B: Using Docker Compose Directly
+```bash
+docker-compose up -d
+```
 
 ### 4. Access Services
 Once started, you can access:
@@ -69,22 +78,51 @@ curl -X POST "http://localhost:8080/v1/memories" \
 
 ## Useful Commands
 
-### View Logs
+### Using the MemMachine Compose Script (Recommended)
+
+#### View Logs
+```bash
+./memmachine-compose.sh logs
+```
+
+#### Stop Services
+```bash
+./memmachine-compose.sh stop
+```
+
+#### Restart Services
+```bash
+./memmachine-compose.sh restart
+```
+
+#### Clean Up (Remove All Data)
+```bash
+./memmachine-compose.sh clean
+```
+
+#### Show Help
+```bash
+./memmachine-compose.sh help
+```
+
+### Using Docker Compose Directly
+
+#### View Logs
 ```bash
 docker-compose logs -f
 ```
 
-### Stop Services
+#### Stop Services
 ```bash
 docker-compose down
 ```
 
-### Restart Services
+#### Restart Services
 ```bash
 docker-compose restart
 ```
 
-### Clean Up (Remove All Data)
+#### Clean Up (Remove All Data)
 ```bash
 docker-compose down -v
 ```
@@ -101,7 +139,7 @@ Key files:
 - `.env` - Environment variables
 - `configuration.yml` - MemMachine configuration
 - `docker-compose.yml` - Service definitions
-- `start-docker.sh` - Startup script
+- `memmachine-compose.sh` - Startup script with validation and health checks
 
 ### ⚠️ Important Configuration Notes
 

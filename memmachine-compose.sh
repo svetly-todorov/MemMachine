@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 
 # MemMachine Docker Startup Script
 # This script helps you get MemMachine running with Docker Compose
@@ -13,7 +13,7 @@ BLUE='\033[0;34m'
 NC='\033[0m' # No Color
 
 # Function to print colored output
-print_status() {
+print_info() {
     echo -e "${BLUE}[INFO]${NC} $1"
 }
 
@@ -53,13 +53,34 @@ check_env_file() {
             print_success "Created .env file from sample_configs/env.docercompose"
             print_warning "Please edit .env file with your configuration before continuing"
             print_warning "Especially set your OPENAI_API_KEY"
-            read -p "Press Enter to continue after editing .env file..."
+            print_info "Exiting script. Please edit .env file and re-run the script."
+            exit 0
         else
             print_error "sample_configs/env.docercompose file not found. Please create .env file manually."
             exit 1
         fi
     else
         print_success ".env file found"
+    fi
+}
+
+# Check if configuration.yml file exists
+check_config_file() {
+    if [ ! -f "configuration.yml" ]; then
+        print_warning "configuration.yml file not found. Creating from template..."
+        if [ -f "sample_configs/episodic_memory_config.sample" ]; then
+            cp sample_configs/episodic_memory_config.sample configuration.yml
+            print_success "Created configuration.yml file from sample_configs/episodic_memory_config.sample"
+            print_warning "Please edit configuration.yml file with your configuration before continuing"
+            print_warning "Especially set your API keys and database credentials"
+            print_info "Exiting script. Please edit configuration.yml file and re-run the script."
+            exit 0
+        else
+            print_error "sample_configs/episodic_memory_config.sample file not found. Please create configuration.yml file manually."
+            exit 1
+        fi
+    else
+        print_success "configuration.yml file found"
     fi
 }
 
@@ -78,9 +99,32 @@ check_required_env() {
     fi
 }
 
+# Check if configuration.yml has required fields
+check_required_config() {
+    if [ -f "configuration.yml" ]; then
+        # Check for API key in configuration.yml - look for actual placeholder patterns
+        if grep -q "api_key.*your_.*_api_key_here" configuration.yml || grep -q "api_key.*sk-example" configuration.yml || grep -q "api_key.*sk-test" configuration.yml; then
+            print_warning "API key in configuration.yml appears to be a placeholder or example value"
+            print_warning "Please set your actual API key in the configuration.yml file"
+            read -p "Press Enter to continue anyway (some features may not work)..."
+        else
+            print_success "API key in configuration.yml appears to be configured"
+        fi
+        
+        # Check for database credentials - look for generic placeholder passwords
+        if grep -q "password.*password" configuration.yml && ! grep -q "password.*memmachine_password" configuration.yml; then
+            print_warning "Database password in configuration.yml appears to be a placeholder"
+            print_warning "Please set your actual database password in the configuration.yml file"
+            read -p "Press Enter to continue anyway (some features may not work)..."
+        else
+            print_success "Database credentials in configuration.yml appear to be configured"
+        fi
+    fi
+}
+
 # Pull and start services
 start_services() {
-    print_status "Pulling and starting MemMachine services..."
+    print_info "Pulling and starting MemMachine services..."
     
     # Use docker-compose or docker compose based on what's available
     if command -v docker-compose &> /dev/null; then
@@ -97,7 +141,7 @@ start_services() {
 
 # Wait for services to be healthy
 wait_for_health() {
-    print_status "Waiting for services to be healthy..."
+    print_info "Waiting for services to be healthy..."
     
     # Use docker-compose or docker compose based on what's available
     if command -v docker-compose &> /dev/null; then
@@ -109,22 +153,34 @@ wait_for_health() {
     # Wait for services to be healthy
     $COMPOSE_CMD ps
     
-    print_status "Checking service health..."
+    print_info "Checking service health..."
     
     # Wait for PostgreSQL
-    print_status "Waiting for PostgreSQL to be ready..."
-    timeout 60 bash -c 'until docker exec memmachine-postgres pg_isready -U memmachine -d memmachine; do sleep 2; done'
-    print_success "PostgreSQL is ready"
+    print_info "Waiting for PostgreSQL to be ready..."
+    if timeout 60 bash -c 'until docker exec memmachine-postgres pg_isready -U memmachine -d memmachine; do sleep 2; done'; then
+        print_success "PostgreSQL is ready"
+    else
+        print_error "PostgreSQL failed to become ready in 60 seconds. Check container logs and configuration."
+        exit 1
+    fi
     
     # Wait for Neo4j
-    print_status "Waiting for Neo4j to be ready..."
-    timeout 60 bash -c 'until docker exec memmachine-neo4j cypher-shell -u neo4j -p neo4j_password "RETURN 1" > /dev/null 2>&1; do sleep 2; done'
-    print_success "Neo4j is ready"
+    print_info "Waiting for Neo4j to be ready..."
+    if timeout 60 bash -c 'until docker exec memmachine-neo4j cypher-shell -u neo4j -p neo4j_password "RETURN 1" > /dev/null 2>&1; do sleep 2; done'; then
+        print_success "Neo4j is ready"
+    else
+        print_error "Neo4j failed to become ready in 60 seconds. Check container logs and configuration."
+        exit 1
+    fi
     
     # Wait for MemMachine
-    print_status "Waiting for MemMachine to be ready..."
-    timeout 120 bash -c 'until curl -f http://localhost:8080/health > /dev/null 2>&1; do sleep 5; done'
-    print_success "MemMachine is ready"
+    print_info "Waiting for MemMachine to be ready..."
+    if timeout 120 bash -c 'until curl -f http://localhost:8080/health > /dev/null 2>&1; do sleep 5; done'; then
+        print_success "MemMachine is ready"
+    else
+        print_error "MemMachine failed to become ready in 120 seconds. Check container logs and configuration."
+        exit 1
+    fi
 }
 
 # Show service information
@@ -157,7 +213,9 @@ main() {
     
     check_docker
     check_env_file
+    check_config_file
     check_required_env
+    check_required_config
     start_services
     wait_for_health
     show_service_info
@@ -166,7 +224,7 @@ main() {
 # Handle script arguments
 case "${1:-}" in
     "stop")
-        print_status "Stopping MemMachine services..."
+        print_info "Stopping MemMachine services..."
         if command -v docker-compose &> /dev/null; then
             docker-compose down
         else
@@ -175,7 +233,7 @@ case "${1:-}" in
         print_success "Services stopped"
         ;;
     "restart")
-        print_status "Restarting MemMachine services..."
+        print_info "Restarting MemMachine services..."
         if command -v docker-compose &> /dev/null; then
             docker-compose restart
         else
@@ -184,7 +242,7 @@ case "${1:-}" in
         print_success "Services restarted"
         ;;
     "logs")
-        print_status "Showing MemMachine logs..."
+        print_info "Showing MemMachine logs..."
         if command -v docker-compose &> /dev/null; then
             docker-compose logs -f
         else
@@ -196,7 +254,7 @@ case "${1:-}" in
         read -p "Are you sure? (y/N): " -n 1 -r
         echo
         if [[ $REPLY =~ ^[Yy]$ ]]; then
-            print_status "Cleaning up MemMachine services and data..."
+            print_info "Cleaning up MemMachine services and data..."
             if command -v docker-compose &> /dev/null; then
                 docker-compose down -v
             else
@@ -204,7 +262,7 @@ case "${1:-}" in
             fi
             print_success "Cleanup completed"
         else
-            print_status "Cleanup cancelled"
+            print_info "Cleanup cancelled"
         fi
         ;;
     "help"|"-h"|"--help")
