@@ -34,65 +34,39 @@ Ready to go? Follow these simple steps.
 
 **C.** Once you have performed step 1 below, you can repeat the benchmark run by performing steps 2-4.  Once are you finished performing the benchmark, run step 5.
 
+**Note:** Although the process is simple, the commands for each type of Tool Set may differ.  Please refer to the [Episodic Memory Tool Set](./locomo/episodic_memory/README.md) or [Episodic Profile Agent Tool Set](./locomo/episodic_profile_agent/README.md) for exact commands, respective to the Benchmark you wish to run.
+
 ### Step 1: Ingest a Conversation
 
 First, let's add conversation data to MemMachine. This only needs to be done once per test run.
 
-```sh
-python locomo_ingest.py --data-path path/to/locomo10.json
-```
-
 ### Step 2: Search the Conversation
 
-Now, let's search through the data you just added.
-
-```sh
-python locomo_search.py --data-path path/to/locomo10.json --target-path results.json
-```
+Let's search through the data you just added.
 
 ### Step 3: Evaluate the Responses
 
 Next, run a LoCoMo evaluation against the search results.
 
-```sh
-python locomo_evaluate.py --data-path results.json --target-path evaluation_metrics.json
-```
-
 ### Step 4: Generate Your Final Score
 
 Once the evaluation is complete, you can generate the final scores.
 
+The output will be a table in your shell showing the mean scores for each category and an overall score, like the example below:
 ```sh
-python generate_scores.py
-```
+Mean Scores Per Category:
+          llm_score  count         type
+category                               
+1            0.8050    282    multi_hop
+2            0.7259    321     temporal
+3            0.6458     96  open_domain
+4            0.9334    841   single_hop
 
-The output will be a table in your shell showing the mean scores for each category and an overall score.
+Overall Mean Scores:
+llm_score    0.8487
+dtype: float64
+```
 
 ### Step 5: Clean Up Your Data
 
 When you're finished, you may want to delete the test data. This is especially important before running a different benchmark.
-
-- **For Episodic Memory:** Simply run this command:
-
-  ```sh
-  python locomo_delete.py --data-path path/to/locomo10.json
-  ```
-
-- **For Episodic Profile Agent:** You'll need to run two commands to ensure all data is removed:
-
-For the first command, make sure that you provide your POSTGRES environment variables for each flag:
-
-  ```sh
-  memmachine-sync-profile-schema --delete
-    -- host <HOST> \ # or use environment variable POSTGRES_HOST
-    -- port <PORT> \ # or use environment variable POSTGRES_PORT
-    -- user <USER> \ # or use environment variable POSTGRES_USER
-    -- password <PASSWORD> \ # or use environment variable POSTGRES_PASSWORD
-    -- database <DATABASE> \ # or use environment variable POSTGRES_DB
-```
-
-  Then, clean up the `locomo` data as well:
-
-  ```sh
-  python locomo_delete.py --data-path path/to/locomo10.json
-  ```
