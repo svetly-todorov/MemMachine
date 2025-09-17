@@ -588,6 +588,31 @@ async def get_sessions_for_agent(agent_id: str) -> AllSessionsResponse:
     )
 
 
+# === Health Check Endpoint ===
+@app.get("/health")
+async def health_check():
+    """Health check endpoint for container orchestration."""
+    try:
+        # Check if memory managers are initialized
+        if profile_memory is None or episodic_memory is None:
+            raise HTTPException(
+                status_code=503, detail="Memory managers not initialized"
+            )
+
+        # Basic health check - could be extended to check database connectivity
+        return {
+            "status": "healthy",
+            "service": "memmachine",
+            "version": "1.0.0",
+            "memory_managers": {
+                "profile_memory": profile_memory is not None,
+                "episodic_memory": episodic_memory is not None,
+            },
+        }
+    except Exception as e:
+         raise HTTPException(status_code=503, detail=f"Service unhealthy: {str(e)}")
+
+
 async def start():
     """Runs the FastAPI application using uvicorn server."""
     port_num = os.getenv("PORT", "8080")
