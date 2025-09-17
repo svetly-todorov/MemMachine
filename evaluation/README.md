@@ -1,9 +1,9 @@
 # Benchmark Evaluations: A Guide to Testing Your MemMachine
 
-Welcome to the MemMachine evaluation toolsets! We've created two simple tools to help you measure the performance and response quality of your MemMachine instance. You can use both of these to get a LoCoMo score for your system.
+Welcome to the MemMachine evaluation toolsets! We've created a simple tool to help you measure the performance, response quality of your MemMachine instance, and generate a LoCoMo score for your system.
 
-- **Episodic Memory Tool Set:** This tool measures how fast and accurately MemMachine performs core episodic memory tasks. For a list of specific commands, check out the [Episodic Memory Tool Set](./locomo/episodic_memory/README.md).
-- **Episodic Profile Agent Tool Set:** This tool is designed to evaluate the speed and quality of MemMachine's Profile Agent. For a list of specific commands, check out the [Episodic Profile Agent Tool Set](./locomo/episodic_profile_agent/README.md).
+**Episodic Memory Tool Set:** This tool measures how fast and accurately MemMachine performs core episodic memory tasks. For a list of specific commands, check out the [Episodic Memory Tool Set](./locomo/episodic_memory/README.md).
+
 
 ## Getting Started
 
@@ -21,20 +21,20 @@ Before you run any benchmarks, you'll need to set up your environment.
 
 **Tool-Specific Prerequisites:**
 
-- **Episodic Memory:** For this tool, please ensure your `cfg.yml` file has been copied into your `locomo` directory (`/memmachine/evaluation/locomo/`) and renamed to `locomo_config.yaml`.
-- **Episodic Profile Agent:** This tool requires your MCP Server to be running before you run any commands.
+- Please ensure your `cfg.yml` file has been copied into your `locomo` directory (`/memmachine/evaluation/locomo/`) and renamed to `locomo_config.yaml`.
+
 
 ## Running the Benchmark
 
-Ready to go? Follow these simple steps. 
+Ready to go? Follow these simple steps:
 
-**A.** All commands should be run from their respective tool directory (e.g., `locomo/episodic_memory/` or `locomo/episodic_profile_agent/`).
+**A.** All commands should be run from their respective tool directory (default `locomo/episodic_memory/`).
 
 **B.** The path to your data file, `locomo10.json`, should be updated to match its location. By default, you can find it in `/memmachine/evaluation/locomo/`.
 
 **C.** Once you have performed step 1 below, you can repeat the benchmark run by performing steps 2-4.  Once are you finished performing the benchmark, run step 5.
 
-**Note:** Although the process is simple, the commands for each type of Tool Set may differ.  Please refer to the [Episodic Memory Tool Set](./locomo/episodic_memory/README.md) or [Episodic Profile Agent Tool Set](./locomo/episodic_profile_agent/README.md) for exact commands, respective to the Benchmark you wish to run.
+**Note:** Please refer to the [Episodic Memory Tool Set](./locomo/episodic_memory/README.md) for exact commands.
 
 ### Step 1: Ingest a Conversation
 
@@ -69,4 +69,4 @@ dtype: float64
 
 ### Step 5: Clean Up Your Data
 
-When you're finished, you may want to delete the test data. This is especially important before running a different benchmark.
+When you're finished, you may want to delete the test data.
