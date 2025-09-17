@@ -15,6 +15,9 @@ class CrossEncoderReranker(Reranker):
     based on their relevance to the query.
     """
 
+    # TODO @edwinyyyu Remove: temporary fix for memory leak
+    _cross_encoders = {}
+
     def __init__(self, config: dict[str, Any] = {}):
         """
         Initialize a CrossEncoderReranker
@@ -32,7 +35,12 @@ class CrossEncoderReranker(Reranker):
         model_name = config.get(
             "model_name", "cross-encoder/ms-marco-MiniLM-L6-v2"
         )
-        self._cross_encoder = CrossEncoder(model_name)
+
+        # TODO @edwinyyyu Remove: temporary fix for memory leak
+        if model_name not in self._cross_encoders.keys():
+            CrossEncoderReranker._cross_encoders[model_name] = CrossEncoder(model_name)
+
+        self._cross_encoder = CrossEncoderReranker._cross_encoders[model_name]
 
     async def score(self, query: str, candidates: list[str]) -> list[float]:
         scores = [
