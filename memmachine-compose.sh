@@ -48,15 +48,15 @@ check_docker() {
 check_env_file() {
     if [ ! -f ".env" ]; then
         print_warning ".env file not found. Creating from template..."
-        if [ -f "sample_configs/env.docercompose" ]; then
-            cp sample_configs/env.docercompose .env
-            print_success "Created .env file from sample_configs/env.docercompose"
+        if [ -f "sample_configs/env.dockercompose" ]; then
+            cp sample_configs/env.dockercompose .env
+            print_success "Created .env file from sample_configs/env.dockercompose"
             print_warning "Please edit .env file with your configuration before continuing"
             print_warning "Especially set your OPENAI_API_KEY"
             print_info "Exiting script. Please edit .env file and re-run the script."
             exit 0
         else
-            print_error "sample_configs/env.docercompose file not found. Please create .env file manually."
+            print_error "sample_configs/env.dockercompose file not found. Please create .env file manually."
             exit 1
         fi
     else

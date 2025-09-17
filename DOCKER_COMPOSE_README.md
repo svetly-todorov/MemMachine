@@ -9,7 +9,7 @@
 ### 1. Configure Environment
 Copy the example environment file and add your OpenAI API key:
 ```bash
-cp sample_configs/env.docercompose .env
+cp sample_configs/env.dockercompose .env
 # Edit .env and add your OPENAI_API_KEY
 ```
 
