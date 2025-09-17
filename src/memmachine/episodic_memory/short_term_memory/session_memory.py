@@ -136,7 +136,7 @@ class SessionMemory:
         # if previous summary task is still running, wait for it
         if self._summary_task is not None:
             await self._summary_task
-        self._summary_task = asyncio.create_task(self.create_summary(result))
+        self._summary_task = asyncio.create_task(self._create_summary(result))
 
     async def clear_memory(self):
         """
@@ -157,7 +157,7 @@ class SessionMemory:
         """Closes the memory, which currently just involves clearing it."""
         await self.clear_memory()
 
-    async def create_summary(self, episodes: list[Episode]):
+    async def _create_summary(self, episodes: list[Episode]):
         """
         Generates a new summary of the events currently in memory.
 
@@ -214,20 +214,26 @@ class SessionMemory:
         """
         logger.debug("Get session for %s", query)
         async with self._lock:
+            if self._summary_task is not None:
+                await self._summary_task
+                self._summary_task = None
             length = (
                 self._compute_token_num(self._summary)
                 if self._summary is not None
                 else 0
             )
-            episodes: list[Episode] = []
-            for e in self._memory:
+            episodes: deque[Episode] = deque()
+            for e in reversed(self._memory):
                 if length >= max_token_num > 0:
                     break
                 if len(episodes) >= limit > 0:
                     break
-                episodes.append(e)
-                length += self._compute_token_num(e.content)
-            return episodes, self._summary
+                token_num = self._compute_token_num(e)
+                if length + token_num > max_token_num > 0:
+                    break
+                episodes.appendleft(e)
+                length += token_num
+            return list(episodes), self._summary
 
     def _compute_token_num(self, episode: Episode | str) -> int:
         """
