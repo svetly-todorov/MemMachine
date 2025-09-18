@@ -27,6 +27,69 @@ def session_manager():
         os.remove(db_path)
 
 
+def test_create_session(session_manager: SessionManager):
+    """Test creating a session."""
+    # Create a session without group
+    with pytest.raises(ValueError):
+        session_manager.create_session(
+            group_id="group1",
+            session_id="session1",
+            configuration={"key": "value"},
+        )
+    # create a new group first
+    session_manager.create_new_group(
+        group_id="group1",
+        agent_ids=["agent1"],
+        user_ids=["user1"],
+        configuration={"key": "value"},
+    )
+    session_info = session_manager.create_session(
+        group_id="group1",
+        session_id="session1",
+        configuration={"key": "value"},
+    )
+    assert isinstance(session_info, SessionInfo)
+    assert session_info.group_id == "group1"
+    assert session_info.agent_ids == ["agent1"]
+    assert session_info.user_ids == ["user1"]
+
+    # create a same session
+    with pytest.raises(ValueError):
+        session_manager.create_session(
+            group_id="group1",
+            session_id="session1",
+            configuration={"key": "value"},
+        )
+
+    # create session with different ID
+    session_info = session_manager.create_session(
+        group_id="group1",
+        session_id="session2",
+        configuration={"key": "value"},
+    )
+    session = session_manager.open_session("group1", "session1")
+    assert session is not None
+    assert session.group_id == "group1"
+    assert session.agent_ids == ["agent1"]
+    assert session.user_ids == ["user1"]
+    assert session.session_id == "session1"
+    assert session.configuration == {"key": "value"}
+    with pytest.raises(ValueError):
+        session_info = session_manager.open_session("group1", "session4")
+    # Verify it's in the DB
+    sessions = session_manager.get_all_sessions()
+    assert len(sessions) == 2
+    assert sessions[0].session_id != sessions[1].session_id
+    assert sessions[0].session_id in ["session1", "session2"]
+    assert sessions[1].session_id in ["session1", "session2"]
+    assert sessions[0].group_id == "group1"
+    assert sessions[1].group_id == "group1"
+    assert sessions[0].agent_ids == ["agent1"]
+    assert sessions[1].agent_ids == ["agent1"]
+    assert sessions[0].user_ids == ["user1"]
+    assert sessions[1].user_ids == ["user1"]
+
+
 def test_create_group(session_manager: SessionManager):
     """Test creating a group."""
     session_manager.create_new_group(
@@ -68,6 +131,15 @@ def test_create_group(session_manager: SessionManager):
     assert groups[1].group_id in ["group1", "group2"]
     session_manager.delete_group("group1")
     assert len(session_manager.retrieve_all_groups()) == 1
+    # create a session for group2
+    session_manager.create_session(
+        group_id="group2",
+        session_id="session1",
+        configuration={"key": "value"},
+    )
+    with pytest.raises(ValueError):
+        session_manager.delete_group("group2")
+    session_manager.delete_session("group2", "session1")
     session_manager.delete_group("group2")
     assert len(session_manager.retrieve_all_groups()) == 0
 
@@ -118,7 +190,9 @@ def test_create_session_if_not_exist_new(
     assert "user1" in session[0].user_ids
 
 
-def test_create_session_if_not_exist_existing(session_manager: SessionManager):
+def test_create_session_if_not_exist_existing(
+    session_manager: SessionManager
+):
     """Test retrieving an existing session."""
     # Create a session first
     session_manager.create_session_if_not_exist(
@@ -204,6 +278,10 @@ def test_delete_session(session_manager: SessionManager):
     session_info = session_manager.create_session_if_not_exist(
         "g1", ["a1"], ["u1"], "s1"
     )
+    assert session_info is not None
+    assert session_info.session_id == "s1"
+    assert session_info.group_id == "g1"
+
     session_manager.create_session_if_not_exist("g2", ["a2"], ["u2"], "s2")
 
     assert len(session_manager.get_all_sessions()) == 2
@@ -217,25 +295,15 @@ def test_delete_session(session_manager: SessionManager):
     assert sessions[0].session_id == "s2"
 
     # Verify link tables are also cleaned up
-    with session_manager._session() as dbsession:
-        user_links = (
-            dbsession.query(session_manager.User)
-            .filter_by(session_id=session_info.id)
-            .all()
-        )
-        assert len(user_links) == 0
-        agent_links = (
-            dbsession.query(session_manager.Agent)
-            .filter_by(session_id=session_info.id)
-            .all()
-        )
-        assert len(agent_links) == 0
-        group_links = (
-            dbsession.query(session_manager.Group)
-            .filter_by(session_id=session_info.id)
-            .all()
-        )
-        assert len(group_links) == 0
+    sessions = session_manager.get_session_by_group("g1")
+    assert len(sessions) == 0
+    sessions = session_manager.get_session_by_group("g2")
+    assert len(sessions) == 1
+    assert sessions[0].session_id == "s2"
+    sessions = session_manager.get_session_by_agent("a1")
+    assert len(sessions) == 0
+    sessions = session_manager.get_session_by_user("u1")
+    assert len(sessions) == 0
 
 
 def test_init_with_invalid_config():

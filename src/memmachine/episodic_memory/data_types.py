@@ -31,8 +31,6 @@ class SessionInfo:
     database.
     """
 
-    id: int
-    """The unique database identifier for the session."""
     user_ids: list[str]
     """A list of user identifiers participating in the session."""
     session_id: str
