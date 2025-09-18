@@ -133,6 +133,7 @@ class EpisodicMemory:
     def short_term_memory(self, value: SessionMemory):
         """
         Set the short-term memory of the episodic memory instance
+        This makes the short term memory can be injected
         Args:
             value: The new short-term memory of the episodic memory instance.
         """
@@ -146,11 +147,12 @@ class EpisodicMemory:
             The long-term memory of the episodic memory instance.
         """
         return self._long_term_memory
-    
+
     @long_term_memory.setter
     def long_term_memory(self, value: LongTermMemory):
         """
         Set the long-term memory of the episodic memory instance
+        This makes the long term memory can be injected
         Args:
             value: The new long-term memory of the episodic memory instance.
         """

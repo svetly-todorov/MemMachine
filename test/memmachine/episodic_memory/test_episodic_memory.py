@@ -164,7 +164,8 @@ async def test_add_memory_episode_invalid_producer(episodic_memory_instance,
             content_type=ContentType.STRING,
         )
 
-    assert "The producer invalid_user does not belong to the session" in caplog.text
+    assert "The producer invalid_user does not belong to the session" \
+        in caplog.text
 
 
 async def test_add_memory_episode_invalid_produced_for(
