@@ -31,8 +31,6 @@ class SessionInfo:
     database.
     """
 
-    id: int
-    """The unique database identifier for the session."""
     user_ids: list[str]
     """A list of user identifiers participating in the session."""
     session_id: str
@@ -46,6 +44,18 @@ class SessionInfo:
     """A list of agent identifiers participating in the session."""
     configuration: dict | None = None
     """A dictionary containing any custom configuration for this session."""
+
+
+@dataclass
+class GroupConfiguration:
+    group_id: str
+    """The identifier for the group."""
+    agent_list: list[str]
+    """A list of agent identifiers in the group."""
+    user_list: list[str]
+    """A list of user identifiers in the group."""
+    configuration: dict
+    """A dictionary containing any custom configuration for the group."""
 
 
 @dataclass
