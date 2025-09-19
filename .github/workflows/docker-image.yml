@@ -21,10 +21,10 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  build-push:
+  build-cpu:
+    name: Build and Push CPU Image
     # Use the latest Ubuntu runner
     runs-on: ubuntu-latest
-
     steps:
       # Step 1: Checkout repository code
       - name: Checkout source
@@ -45,29 +45,17 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_API_KEY }}
 
-      # Step 5a: Extract Docker metadata for CPU image
+      # Step 5: Extract Docker metadata for CPU image
       - name: Extract Docker metadata for CPU image
         id: meta-cpu
         uses: docker/metadata-action@v5
         with:
           images: ${{ env.IMAGE_NAME }}
           tags: |
-            type=semver,pattern={{version}}-cpu
+            type=semver,pattern=v{{version}}-cpu
             type=semver,pattern=latest-cpu,enable=${{ !github.event.release.prerelease }}
             # Tag the CPU image with ':latest' if not a prerelease
             type=semver,pattern=latest,enable=${{ !github.event.release.prerelease }}
-          labels: |
-            org.opencontainers.image.source=${{ github.repository }}
-
-      # Step 5b: Extract Docker metadata for GPU image
-      - name: Extract Docker metadata for GPU image
-        id: meta-gpu
-        uses: docker/metadata-action@v5
-        with:
-          images: ${{ env.IMAGE_NAME }}
-          tags: |
-            type=semver,pattern={{version}}-gpu
-            type=semver,pattern=latest-gpu,enable=${{ !github.event.release.prerelease }}
           labels: |
             org.opencontainers.image.source=${{ github.repository }}
 
@@ -85,8 +73,48 @@ jobs:
           platforms: linux/amd64,linux/arm64
           cache-from: type=gha
           cache-to: type=gha,mode=max
+      
+      # Step 7: Show the digest of the built CPU image (useful for traceability)
+      - name: Show CPU image digest
+        run: echo "CPU digest - ${{ steps.build_cpu.outputs.digest }}"
 
-      # Step 7: Build and push the GPU image
+  build-gpu:
+    name: Build and Push GPU Image
+    # Use the latest Ubuntu runner
+    runs-on: ubuntu-latest
+    steps:
+      # Step 1: Checkout repository code
+      - name: Checkout source
+        uses: actions/checkout@v4
+
+      # Step 2: Enable QEMU for multi-platform builds (required for ARM support)
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      # Step 3: Set up Docker Buildx (needed for advanced Docker builds)
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      # Step 4: Log in to Docker Hub
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_API_KEY }}
+
+      # Step 5: Extract Docker metadata for GPU image
+      - name: Extract Docker metadata for GPU image
+        id: meta-gpu
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_NAME }}
+          tags: |
+            type=semver,pattern=v{{version}}-gpu
+            type=semver,pattern=latest-gpu,enable=${{ !github.event.release.prerelease }}
+          labels: |
+            org.opencontainers.image.source=${{ github.repository }}
+
+      # Step 6: Build and push the GPU image
       - name: Build and push GPU image
         id: build_gpu
         uses: docker/build-push-action@v6
@@ -103,10 +131,6 @@ jobs:
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
-      # Step 8: Show the digest of the built CPU image (useful for traceability)
-      - name: Show CPU image digest
-        run: echo "CPU digest - ${{ steps.build_cpu.outputs.digest }}"
-
-      # Step 9: Show the digest of the built GPU image (useful for traceability)
+      # Step 7: Show the digest of the built GPU image (useful for traceability)
       - name: Show GPU image digest
         run: echo "GPU digest - ${{ steps.build_gpu.outputs.digest }}"
