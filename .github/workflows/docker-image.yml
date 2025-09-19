@@ -2,10 +2,16 @@
 name: Build and Publish CPU/GPU Docker Images
 
 on:
-  # Trigger when a release is published or manually via the Actions tab
+  # Trigger when a release is published
   release:
     types: [published]
+  # Trigger manually via the Actions tab with a required tag input
   workflow_dispatch:
+    inputs:
+      tag:
+        description: 'The git tag to build (e.g., v0.1.1)'
+        required: true
+        type: string
 
 env:
   # Docker image name to publish
@@ -26,9 +32,17 @@ jobs:
     # Use the latest Ubuntu runner
     runs-on: ubuntu-latest
     steps:
-      # Step 1: Checkout repository code
-      - name: Checkout source
+      # Step 1: Checkout source for Release triggers
+      - name: Checkout source (Release)
+        if: github.event_name == 'release'
         uses: actions/checkout@v4
+
+      # Step 1: Checkout source for Manual triggers
+      - name: Checkout source (Manual)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
 
       # Step 2: Enable QEMU for multi-platform builds (required for ARM support)
       - name: Set up QEMU
@@ -83,9 +97,17 @@ jobs:
     # Use the latest Ubuntu runner
     runs-on: ubuntu-latest
     steps:
-      # Step 1: Checkout repository code
-      - name: Checkout source
+      # Step 1: Checkout source for Release triggers
+      - name: Checkout source (Release)
+        if: github.event_name == 'release'
         uses: actions/checkout@v4
+
+      # Step 1: Checkout source for Manual triggers
+      - name: Checkout source (Manual)
+        if: github.event_name == 'workflow_dispatch'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.tag }}
 
       # Step 2: Enable QEMU for multi-platform builds (required for ARM support)
       - name: Set up QEMU
