@@ -258,7 +258,7 @@ class SessionManager:
     def open_session(self, group_id: str, session_id: str) -> SessionInfo:
         """
         Opens a session.
-        If the session already exists, this function fails.
+        If the session does not exist, this function fails.
 
         Args:
             group_id (str): The ID of the group for this session.
@@ -274,7 +274,7 @@ class SessionManager:
             ).all()
             if len(sessions) < 1:
                 raise ValueError(
-                    f"""Session {group_id}: {session_id} does exists"""
+                    f"""Session {group_id}: {session_id} does not exists"""
                 )
             return SessionInfo(
                 group_id=sessions[0].group_id,
