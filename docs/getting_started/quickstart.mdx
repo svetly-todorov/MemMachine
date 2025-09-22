@@ -71,7 +71,7 @@ uvicorn app:app --reload
 The simplest way to start is by checking for existing sessions. This `GET` request doesn't require any data. You will likely see an empty list since no sessions have been created yet.
 
 ```
-curl http://127.0.0.1:8000/v1/sessions
+curl http://127.0.0.1:8080/v1/sessions
 ```
 </Step>
 <Step title="Add a New Memory">
@@ -81,7 +81,7 @@ This is where you'll create your first memory episode. The `POST /v1/memories` e
 **Command:**
 
 ```
-curl -X POST "http://127.0.0.1:8000/v1/memories" \
+curl -X POST "http://127.0.0.1:8080/v1/memories" \
 -H "Content-Type: application/json" \
 -d '{
   "session": {
@@ -109,7 +109,7 @@ Now that a memory has been added, let's try to find it. The `POST /v1/memories/s
 **Command:**
 
 ```
-curl -X POST "http://127.0.0.1:8000/v1/memories/search" \
+curl -X POST "http://127.0.0.1:8080/v1/memories/search" \
 -H "Content-Type: application/json" \
 -d '{
   "session": {
@@ -135,7 +135,7 @@ To clean up after your test, you can use the `DELETE /v1/memories` endpoint. Thi
 **Command:**
 
 ```
-curl -X DELETE "http://127.0.0.1:8000/v1/memories" \
+curl -X DELETE "http://127.0.0.1:8080/v1/memories" \
 -H "Content-Type: application/json" \
 -d '{
   "session": {
@@ -169,7 +169,7 @@ The simplest way to start is by checking for existing sessions. This is an MCP *
 **Command:**
 
 ```
-curl http://127.0.0.1:8000/mcp/sessions
+curl http://127.0.0.1:8080/mcp/sessions
 ```
 
 **Expected Output:**
@@ -183,7 +183,7 @@ This is where you'll use an MCP **tool** to create your first memory episode. Th
 **Command:**
 
 ```
-curl -X POST "http://127.0.0.1:8000/mcp/add_session_memory" \
+curl -X POST "http://127.0.0.1:8080/mcp/add_session_memory" \
 -H "Content-Type: application/json" \
 -d '{
   "session": {
@@ -218,7 +218,7 @@ Now that a memory has been added, let's use another MCP **tool** to find it. The
 **Command:**
 
 ```
-curl -X POST "http://127.0.0.1:8000/mcp/search_session_memory" \
+curl -X POST "http://127.0.0.1:8080/mcp/search_session_memory" \
 -H "Content-Type: application/json" \
 -d '{
   "session": {
@@ -244,7 +244,7 @@ To clean up after your test, use the `mcp_delete_session_data` **tool**. This is
 **Command:**
 
 ```
-curl -X POST "http://127.0.0.1:8000/mcp/delete_session_data" \
+curl -X POST "http://127.0.0.1:8080/mcp/delete_session_data" \
 -H "Content-Type: application/json" \
 -d '{
   "session": {
