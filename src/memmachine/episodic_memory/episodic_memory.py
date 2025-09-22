@@ -398,12 +398,12 @@ class EpisodicMemory:
         Returns:
             A new query string enriched with context.
         """
-        short_memoy, long_memory, summary = await self.query_memory(
+        short_memory, long_memory, summary = await self.query_memory(
             query,
             limit,
             property_filter
         )
-        episodes = short_memoy + long_memory
+        episodes = short_memory + long_memory
 
         finalized_query = ""
         # Add summary if it exists
