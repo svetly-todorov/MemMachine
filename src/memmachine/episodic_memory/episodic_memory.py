@@ -403,7 +403,8 @@ class EpisodicMemory:
             limit,
             property_filter
         )
-        episodes = short_memory + long_memory
+        episodes = sorted(short_memory + long_memory,
+                          key=lambda x: x.timestamp)
 
         finalized_query = ""
         # Add summary if it exists

@@ -1,7 +1,7 @@
 """Unit tests for the EpisodicMemory class."""
 
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
@@ -292,6 +292,55 @@ async def test_formalize_query_with_context(episodic_memory_instance):
         expected = (
             "<Summary>\nmy summary\n\n</Summary>\n"
             "<Episodes>\nepisode content\nlong term episode content\n"
+            "</Episodes>\n"
+            "<Query>\noriginal query\n</Query>"
+        )
+        assert result == expected
+
+
+async def test_formalize_query_with_ordering(episodic_memory_instance):
+    """Tests the formatting of a query with context from memory."""
+    current_date = datetime.now()
+    mock_episode = Episode(
+        uuid=uuid.uuid4(),
+        content="episode content",
+        episode_type="message",
+        content_type=ContentType.STRING,
+        # make the short memory newer
+        timestamp=current_date + timedelta(days=2),
+        group_id="group",
+        session_id="session",
+        producer_id="user",
+    )
+
+    mock_long_term_episode = Episode(
+        uuid=uuid.uuid4(),
+        content="long term episode content",
+        episode_type="message",
+        content_type=ContentType.STRING,
+        timestamp=current_date,
+        group_id="group",
+        session_id="session",
+        producer_id="user",
+    )
+
+    # Patch the instance's own query_memory method
+    with patch.object(
+        episodic_memory_instance, "query_memory", new=AsyncMock()
+    ) as mock_query:
+        mock_query.return_value = (
+            [mock_episode],
+            [mock_long_term_episode],
+            ["my summary"]
+        )
+
+        result = await episodic_memory_instance.formalize_query_with_context(
+            "original query"
+        )
+
+        expected = (
+            "<Summary>\nmy summary\n\n</Summary>\n"
+            "<Episodes>\nlong term episode content\nepisode content\n"
             "</Episodes>\n"
             "<Query>\noriginal query\n</Query>"
         )
