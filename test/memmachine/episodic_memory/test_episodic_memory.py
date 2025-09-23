@@ -322,3 +322,12 @@ async def test_async_episodic_memory_context_manager(episodic_memory_instance):
 
     # __aexit__ should call close
     episodic_memory_instance.close.assert_awaited_once()
+
+
+async def test_delete_data(episodic_memory_instance):
+    """Tests the delete_data method."""
+    await episodic_memory_instance.delete_data()
+    episodic_memory_instance.short_term_memory \
+        .clear_memory.assert_awaited_once()
+    episodic_memory_instance.long_term_memory \
+        .forget_session.assert_awaited_once()
