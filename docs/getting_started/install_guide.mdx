@@ -62,7 +62,7 @@ This method is for users who want to contribute to the project or run from the l
 First, clone the repository and navigate into the project directory:
 
 ```sh
-git clone [https://github.com/MemMachine/MemMachine.git](https://github.com/MemMachine/MemMachine.git)
+git clone https://github.com/MemMachine/MemMachine.git
 cd MemMachine
 ```
 
@@ -73,12 +73,12 @@ Next, use the `uv` tool to install all dependencies. If you don't have `uv`, you
 
 ```sh
 # If you don't have uv installed, run this command:
-curl -LsSf [https://astral.sh/uv/install.sh](https://astral.sh/uv/install.sh) | sh
+curl -LsSf https://astral.sh/uv/install.sh | sh
 
 # Now, install the project dependencies:
 uv pip install .
 ```
-<Note> If you wish to run with an NVIDIA GPU, you will need to install dependencies for GPU by using the `uv pip installl ."[gpu]"` command.</Note>
+<Note> If you wish to run with an NVIDIA GPU, you will need to install dependencies for GPU by using the `uv pip install ".[gpu]"` command.</Note>
 </Accordion>
 </AccordionGroup>
 </Step>
@@ -124,7 +124,8 @@ You can download this file from our GitHub repository as a template using the fo
 curl -o cfg.yml https://raw.githubusercontent.com/MemMachine/MemMachine/refs/heads/main/sample_configs/episodic_memory_config.sample
 ```
 Below is an example of what the `config.yml` file should look like.  
-Please note, if you are using a CPU only installation, be sure to comment out lines 51-53 with a '#', as you will not be able to use the cross-encoder reranker in that environment.
+<Note>> if you are using a CPU only installation, be sure to comment out cross-encoder lines (46, 51-53) with a '#' or remove those lines from your file, as you will not be able to use the cross-encoder reranker in that environment.</Note>
+
 ```sh expandable lines
 logging:
   path: /tmp/memory_log
