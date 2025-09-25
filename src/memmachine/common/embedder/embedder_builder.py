@@ -60,6 +60,7 @@ class EmbedderBuilder(Builder):
                     {
                         "model": config.get("model", "text-embedding-3-small"),
                         "api_key": config["api_key"],
+                        "dimensions": config.get("dimensions"),
                         "metrics_factory": injected_metrics_factory,
                         "max_retry_interval_seconds": config.get(
                             "max_retry_interval_seconds", 120
