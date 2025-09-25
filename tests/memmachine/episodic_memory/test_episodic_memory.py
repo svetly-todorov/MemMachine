@@ -27,7 +27,6 @@ def memory_context():
         agent_id={"test_agent"},
         user_id={"test_user"},
         session_id="test_session",
-        hash_str="test_hash",
     )
 
 

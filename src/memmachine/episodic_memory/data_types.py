@@ -75,15 +75,19 @@ class MemoryContext:
     """A set of user identifiers for the context."""
     session_id: str
     """The identifier for the session context."""
-    hash_str: str
-    """
-    A pre-computed string representation of the context for hashing
-    and dictionary keys.
-    """
+    def __eq__(self, other):
+        if not isinstance(other, MemoryContext):
+            return False
+        return (
+            self.group_id == other.group_id
+            and self.session_id == other.session_id
+        )
 
     def __hash__(self):
-        """Computes the hash of the context based on the hash_str."""
-        return hash(self.hash_str)
+        return hash(
+            f"""{len(self.group_id)}#{self.group_id}_
+            {len(self.session_id)}#{self.session_id}"""
+        )
 
 
 @dataclass(kw_only=True)

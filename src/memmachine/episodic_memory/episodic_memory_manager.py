@@ -62,7 +62,7 @@ class EpisodicMemoryManager:
         self._memory_config = config
         # A dictionary to hold active memory instances, keyed by their context
         # hash string.
-        self._context_memory: dict[str, EpisodicMemory] = {}
+        self._context_memory: dict[MemoryContext, EpisodicMemory] = {}
         # A lock to ensure thread-safe access to the _context_memory
         # dictionary.
         self._lock = asyncio.Lock()
@@ -214,10 +214,14 @@ class EpisodicMemoryManager:
             raise ValueError("Invalid session id")
 
         inst = None
-        hash_str = group_id + "_" + session_id
+        context = MemoryContext(
+            group_id=group_id,
+            agent_id=set(),
+            user_id=set(),
+            session_id=session_id)
         async with self._lock:
-            if hash_str in self._context_memory:
-                inst = self._context_memory[hash_str]
+            if context in self._context_memory:
+                inst = self._context_memory[context]
         if inst is None:
             return False
         await inst.close()
@@ -281,13 +285,11 @@ class EpisodicMemoryManager:
                 session_id,
                 configuration
             )
-            hash_str = group_id + "_" + session_id
             context = MemoryContext(
                 group_id=group_id,
                 agent_id=set(group.agent_list),
                 user_id=set(group.user_list),
                 session_id=session_id,
-                hash_str=hash_str,
             )
             final_config = self._merge_configs(
                 self._memory_config, session.configuration or {}
@@ -295,7 +297,7 @@ class EpisodicMemoryManager:
             memory_instance = EpisodicMemory(
                 self, final_config, context
             )
-            self._context_memory[hash_str] = memory_instance
+            self._context_memory[context] = memory_instance
             await memory_instance.reference()
             return memory_instance
 
@@ -312,28 +314,28 @@ class EpisodicMemoryManager:
         Returns:
             The EpisodicMemory instance for the specified group and session.
         """
+        context = MemoryContext(
+            group_id=group_id,
+            agent_id=set(),
+            user_id=set(),
+            session_id=session_id
+        )
         async with self._lock:
-            hash_str = group_id + "_" + session_id
-            if hash_str in self._context_memory:
-                inst = self._context_memory[hash_str]
+            if context in self._context_memory:
+                inst = self._context_memory[context]
                 await inst.reference()
                 return inst
 
-            session_info = self._session_manager.open_session(group_id,
-                                                              session_id)
-            context = MemoryContext(
-                group_id=group_id,
-                agent_id=set(session_info.agent_ids),
-                user_id=set(session_info.user_ids),
-                session_id=session_id,
-                hash_str=hash_str,
+            session_info = self._session_manager.open_session(
+                group_id,
+                session_id
             )
             memory_instance = EpisodicMemory(
                 self,
                 session_info.configuration,
                 context
             )
-            self._context_memory[hash_str] = memory_instance
+            self._context_memory[context] = memory_instance
             await memory_instance.reference()
             return memory_instance
 
@@ -425,21 +427,19 @@ class EpisodicMemoryManager:
         if len(user_id) < 1:
             user_id = agent_id
 
-        hash_str = group_id + "_" + session_id
         # Create the unique memory context object.
-        memory_context = MemoryContext(
+        context = MemoryContext(
             group_id=group_id,
             agent_id=set(agent_id),
             user_id=set(user_id),
             session_id=session_id,
-            hash_str=hash_str,
         )
 
         async with self._lock:
             # If an instance for this context already exists, increment its
             # reference count and return it.
-            if hash_str in self._context_memory:
-                instance = self._context_memory[hash_str]
+            if context in self._context_memory:
+                instance = self._context_memory[context]
                 get_it = await instance.reference()
                 if get_it:
                     return instance
@@ -462,10 +462,10 @@ class EpisodicMemoryManager:
 
             # Create and store the new memory instance.
             memory_instance = EpisodicMemory(
-                self, final_config, memory_context
+                self, final_config, context
             )
 
-            self._context_memory[hash_str] = memory_instance
+            self._context_memory[context] = memory_instance
 
             await memory_instance.reference()
             return memory_instance
@@ -482,20 +482,22 @@ class EpisodicMemoryManager:
         """
 
         async with self._lock:
-            if context.hash_str in self._context_memory:
-                logger.info("Deleting context memory %s\n", context.hash_str)
-                del self._context_memory[context.hash_str]
+            if context in self._context_memory:
+                logger.info("Deleting context memory %s\n", context)
+                del self._context_memory[context]
             else:
                 logger.info(
-                    "Context memory %s does not exist\n", context.hash_str
+                    "Context memory %s does not exist\n", context
                 )
 
     async def shut_down(self):
         """
         Close all sessions and clean up resources.
         """
-        for _, inst in self._context_memory.items():
-            await inst.close()
+        tasks = []
+        for inst in self._context_memory.values():
+            tasks.append(inst.close())
+        await asyncio.gather(*tasks)
         del self._session_manager
         self._session_manager = None
 
