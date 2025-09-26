@@ -428,15 +428,16 @@ class ProfileMemory:
                 str(e),
             )
             profile_update_commands = {}
-
-        logger.info(
-            "PROFILE MEMORY INGESTOR",
-            extra={
-                "queries_to_ingest": memory_content,
-                "thoughts": thinking,
-                "outputs": profile_update_commands,
-            },
-        )
+            return
+        finally:
+            logger.info(
+                "PROFILE MEMORY INGESTOR",
+                extra={
+                    "queries_to_ingest": memory_content,
+                    "thoughts": thinking,
+                    "outputs": profile_update_commands,
+                },
+            )
 
         # This should probably just be a list of commands
         # instead of a dictionary mapping
@@ -449,7 +450,7 @@ class ProfileMemory:
                 type(profile_update_commands).__name__,
                 profile_update_commands,
             )
-            profile_update_commands = {}
+            return
 
         commands = profile_update_commands.values()
 
@@ -570,15 +571,16 @@ class ProfileMemory:
                 str(e),
             )
             updated_profile_entries = {}
-
-        logger.info(
-            "PROFILE MEMORY CONSOLIDATOR",
-            extra={
-                "receives": memories,
-                "thoughts": thinking,
-                "outputs": updated_profile_entries,
-            },
-        )
+            return
+        finally:
+            logger.info(
+                "PROFILE MEMORY CONSOLIDATOR",
+                extra={
+                    "receives": memories,
+                    "thoughts": thinking,
+                    "outputs": updated_profile_entries,
+                },
+            )
 
         if not isinstance(updated_profile_entries, dict):
             logger.warning(
@@ -586,7 +588,7 @@ class ProfileMemory:
                 type(updated_profile_entries).__name__,
                 updated_profile_entries,
             )
-            updated_profile_entries = {}
+            return
 
         if "consolidate_memories" not in updated_profile_entries:
             logger.warning(
@@ -596,6 +598,8 @@ class ProfileMemory:
             )
             updated_profile_entries["consolidate_memories"] = []
 
+        keep_all_memories = False
+
         if "keep_memories" not in updated_profile_entries:
             logger.warning(
                 "AI response format incorrect: "
@@ -603,11 +607,10 @@ class ProfileMemory:
                 updated_profile_entries,
             )
             updated_profile_entries["keep_memories"] = []
+            keep_all_memories = True
 
         consolidate_memories = updated_profile_entries["consolidate_memories"]
         keep_memories = updated_profile_entries["keep_memories"]
-
-        keep_all_memories = False
 
         if not isinstance(consolidate_memories, list):
             logger.warning(
