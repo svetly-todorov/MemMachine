@@ -292,7 +292,7 @@ class EpisodicMemory:
 
             # If no more references, proceed with closing
             logger.info(
-                "Closing context memory: %s", self._memory_context.hash_str
+                "Closing context memory: %s", str(self._memory_context)
             )
             await asyncio.gather(
                 self._session_memory.close(), self._long_term_memory.close()
