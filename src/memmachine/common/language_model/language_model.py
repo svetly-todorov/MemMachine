@@ -18,6 +18,7 @@ class LanguageModel(ABC):
         user_prompt: str | None = None,
         tools: list[dict[str, Any]] | None = None,
         tool_choice: str | dict[str, str] = "auto",
+        max_attempts: int = 1,
     ) -> tuple[str, Any]:
         """
         Generate a response based on the provided prompts and tools.
@@ -35,10 +36,22 @@ class LanguageModel(ABC):
                 Can be "auto" for automatic selection,
                 "required" for using at least one tool,
                 or a specific tool.
+            max_attempts (int, optional):
+                The maximum number of attempts to make before giving up.
+                Defaults to 1.
+
 
         Returns:
             tuple[str, Any]:
                 A tuple containing the generated response text
                 and tool call outputs (if any).
+
+
+        Raises:
+            IOError:
+                If IO error happens. The IO errors can include: Netowrk Error,
+                Rate Litmit, Timeout, etc.
+            ValueError:
+                Any other errors except the IOError.
         """
         raise NotImplementedError

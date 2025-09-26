@@ -2,14 +2,18 @@
 OpenAI-based embedder implementation.
 """
 
+import asyncio
+import logging
 import time
 from typing import Any
 
-from openai import AsyncOpenAI
+import openai
 
 from memmachine.common.metrics_factory.metrics_factory import MetricsFactory
 
 from .embedder import Embedder
+
+logger = logging.getLogger(__name__)
 
 
 class OpenAIEmbedder(Embedder):
@@ -50,7 +54,7 @@ class OpenAIEmbedder(Embedder):
         if api_key is None:
             raise ValueError("Embedder API key must be provided")
 
-        self._client = AsyncOpenAI(api_key=api_key)
+        self._client = openai.AsyncOpenAI(api_key=api_key)
 
         metrics_factory = config.get("metrics_factory")
         if metrics_factory is not None and not isinstance(
@@ -82,24 +86,70 @@ class OpenAIEmbedder(Embedder):
                 label_names=label_names,
             )
 
-    async def ingest_embed(self, inputs: list[Any]) -> list[list[float]]:
-        return await self._embed(inputs)
+    async def ingest_embed(
+        self,
+        inputs: list[Any],
+        max_attempts: int = 1
+    ) -> list[list[float]]:
+        return await self._embed(inputs, max_attempts)
 
-    async def search_embed(self, queries: list[Any]) -> list[list[float]]:
-        return await self._embed(queries)
+    async def search_embed(
+        self,
+        queries: list[Any],
+        max_attempts: int = 1
+    ) -> list[list[float]]:
+        return await self._embed(queries, max_attempts)
 
-    async def _embed(self, inputs: list[Any]) -> list[list[float]]:
+    async def _embed(
+            self,
+            inputs: list[Any],
+            max_attempts: int = 1) -> list[list[float]]:
         if not inputs:
             return []
+        if max_attempts <= 0:
+            raise ValueError("max_attempts must be a positive integer")
 
         inputs = [
             input.replace("\n", " ") if input else "\n" for input in inputs
         ]
 
         start_time = time.monotonic()
-        response = await self._client.embeddings.create(
-            input=inputs, model=self._model
-        )
+        sleep_seconds = 1
+        for attempt in range(max_attempts):
+            sleep_seconds *= 2
+            try:
+                response = await self._client.embeddings.create(
+                    input=inputs, model=self._model
+                )
+            # translate vendor specific exeception to common error
+            # for rate limit and timeout error, may retry the request
+            except openai.AuthenticationError as e:
+                raise ValueError("Invalid OpenAI API key") from e
+            except openai.RateLimitError as e:
+                logger.warning("OpenAI rate limit exceeded")
+                if attempt + 1 >= max_attempts:
+                    raise IOError("OpenAI rate limit exceeded") from e
+                await asyncio.sleep(sleep_seconds)
+                continue
+            except openai.APITimeoutError as e:
+                logger.warning("OpenAI API timeout")
+                if attempt + 1 >= max_attempts:
+                    raise IOError("OpenAI API timeout") from e
+                await asyncio.sleep(sleep_seconds)
+                continue
+            except openai.APIConnectionError as e:
+                logger.warning("OpenAI API connection error")
+                if attempt + 1 >= max_attempts:
+                    raise IOError("OpenAI API connection error") from e
+                await asyncio.sleep(sleep_seconds)
+                continue
+            except openai.BadRequestError as e:
+                raise ValueError("OpenAI invalid request") from e
+            except openai.APIError as e:
+                raise ValueError("OpenAI API error") from e
+            except openai.OpenAIError as e:
+                raise ValueError("OpenAI error") from e
+            break
         end_time = time.monotonic()
 
         if self._collect_metrics:
