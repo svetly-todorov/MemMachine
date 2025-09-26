@@ -75,52 +75,68 @@ Use the "/submit" command followed by the content type and your writing sample:
     def detect_submit_command(self, query: str) -> dict:
         """Detect if the query contains a /submit command and extract components"""
         # Check if query starts with /submit
-        if not query.strip().lower().startswith('/submit'):
+        if not query.strip().lower().startswith("/submit"):
             return {
                 "is_submission": False,
                 "content_type": None,
                 "writing_sample": None,
-                "original_query": query
+                "original_query": query,
             }
-        
+
         # Remove /submit and split by space
         remaining = query[7:].strip()  # Remove "/submit"
-        
+
         # Split into potential content type and writing sample
-        parts = remaining.split(' ', 1)
-        
+        parts = remaining.split(" ", 1)
+
         if len(parts) == 1:
             # Only writing sample, no content type
             return {
                 "is_submission": True,
                 "content_type": "general",
                 "writing_sample": parts[0],
-                "original_query": query
+                "original_query": query,
             }
         else:
             # Has content type and writing sample
             content_type = parts[0].lower()
             writing_sample = parts[1]
-            
+
             # Common content types
-            valid_types = ['email', 'blog', 'linkedin', 'twitter', 'facebook', 'instagram', 
-                          'report', 'proposal', 'memo', 'letter', 'essay', 'article', 
-                          'creative', 'technical', 'formal', 'casual', 'general']
-            
+            valid_types = [
+                "email",
+                "blog",
+                "linkedin",
+                "twitter",
+                "facebook",
+                "instagram",
+                "report",
+                "proposal",
+                "memo",
+                "letter",
+                "essay",
+                "article",
+                "creative",
+                "technical",
+                "formal",
+                "casual",
+                "general",
+            ]
+
             if content_type not in valid_types:
                 # If first word is not a recognized content type, treat it as general
                 return {
                     "is_submission": True,
                     "content_type": "general",
                     "writing_sample": remaining,
-                    "original_query": query
+                    "original_query": query,
                 }
-            
+
             return {
                 "is_submission": True,
                 "content_type": content_type,
                 "writing_sample": writing_sample,
-                "original_query": query
+                "original_query": query,
             }
 
     def create_query(
@@ -129,15 +145,13 @@ Use the "/submit" command followed by the content type and your writing sample:
         """Create a writing assistant query using the prompt template"""
         if not query or not query.strip():
             raise ValueError("Query cannot be empty")
-        
+
         # Check if this is a /submit command
         submit_info = self.detect_submit_command(query)
-        
+
         if submit_info["is_submission"]:
             # For submissions, create a specialized prompt
-            return self.create_submission_query(
-                profile, context, submit_info
-            )
+            return self.create_submission_query(profile, context, submit_info)
         else:
             # For regular queries, use the standard template
             profile_str = profile or ""
@@ -162,7 +176,7 @@ Use the "/submit" command followed by the content type and your writing sample:
         """Create a specialized query for writing sample submissions"""
         content_type = submit_info["content_type"]
         writing_sample = submit_info["writing_sample"]
-        
+
         submission_prompt = f"""
 You are analyzing a writing sample to extract the user's writing style characteristics.
 
@@ -195,5 +209,5 @@ Context:
 
 Please analyze this writing sample and provide the style characteristics.
 """
-        
+
         return submission_prompt

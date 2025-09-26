@@ -18,10 +18,12 @@ app = FastAPI(
 
 writing_assistant_constructor = WritingAssistantQueryConstructor()
 
+
 # Pydantic models for request/response
 class MemoryRequest(BaseModel):
     user_id: str
     query: str
+
 
 class MemoryResponse(BaseModel):
     status: str
@@ -37,10 +39,10 @@ async def store_data(request: MemoryRequest):
     try:
         user_id = request.user_id
         query = request.query
-        
+
         # Check if this is a /submit command
         submit_info = writing_assistant_constructor.detect_submit_command(query)
-        
+
         session_data = {
             "group_id": None,
             "agent_id": ["assistant"],
@@ -59,8 +61,16 @@ async def store_data(request: MemoryRequest):
                 "timestamp": datetime.now().isoformat(),
                 "type": "message",
                 "is_submission": submit_info["is_submission"],
-                "content_type": submit_info["content_type"] if submit_info["is_submission"] else None,
-                "writing_sample": submit_info["writing_sample"] if submit_info["is_submission"] else None,
+                "content_type": (
+                    submit_info["content_type"]
+                    if submit_info["is_submission"]
+                    else None
+                ),
+                "writing_sample": (
+                    submit_info["writing_sample"]
+                    if submit_info["is_submission"]
+                    else None
+                ),
             },
         }
 
@@ -68,25 +78,24 @@ async def store_data(request: MemoryRequest):
             f"{MEMORY_BACKEND_URL}/v1/memories", json=episode_data, timeout=1000
         )
         response.raise_for_status()
-        
+
         if submit_info["is_submission"]:
             return MemoryResponse(
                 status="success",
                 data=response.json(),
-                message="Say this: 'Thank you for submitting your writing sample. Your writing sample has been analyzed and stored.'"
+                message="Say this: 'Thank you for submitting your writing sample. Your writing sample has been analyzed and stored.'",
             )
         else:
             return MemoryResponse(
                 status="success",
                 data=response.json(),
-                message="Message stored successfully"
+                message="Message stored successfully",
             )
-            
+
     except Exception as e:
         logging.exception("Error occurred in /memory store_data")
         return MemoryResponse(
-            status="error",
-            message=f"Internal error in /memory store_data: {str(e)}"
+            status="error", message=f"Internal error in /memory store_data: {str(e)}"
         )
 
 
@@ -121,8 +130,7 @@ async def get_data(query: str, user_id: str, timestamp: str = None):
         if response.status_code != 200:
             logging.error(f"Backend returned {response.status_code}: {response.text}")
             return MemoryResponse(
-                status="error",
-                message="Failed to retrieve memory data"
+                status="error", message="Failed to retrieve memory data"
             )
 
         response_data = response.json()
@@ -155,28 +163,29 @@ async def get_data(query: str, user_id: str, timestamp: str = None):
 
         # Check if this is a submission request
         submit_info = writing_assistant_constructor.detect_submit_command(query)
-        query_type = "writing_style_submission" if submit_info["is_submission"] else "writing_assistant"
+        query_type = (
+            "writing_style_submission"
+            if submit_info["is_submission"]
+            else "writing_assistant"
+        )
 
         return MemoryResponse(
             status="success",
             data={"profile": profile_memory, "context": episodic_memory},
             formatted_query=formatted_query,
-            query_type=query_type
+            query_type=query_type,
         )
-        
+
     except Exception as e:
         logging.exception("Error occurred in /memory get_data")
         return MemoryResponse(
-            status="error",
-            message=f"Internal error in /memory get_data: {str(e)}"
+            status="error", message=f"Internal error in /memory get_data: {str(e)}"
         )
 
 
 @app.post("/memory/store-and-search")
 async def store_and_search_data(
-    request: MemoryRequest = None,
-    user_id: str = Query(None),
-    query: str = Query(None)
+    request: MemoryRequest = None, user_id: str = Query(None), query: str = Query(None)
 ):
     """Store user data and immediately search for relevant context"""
     try:
@@ -186,13 +195,15 @@ async def store_and_search_data(
             query = request.query
         else:
             if user_id is None or query is None:
-                raise HTTPException(status_code=422, detail="Missing user_id or query parameter")
+                raise HTTPException(
+                    status_code=422, detail="Missing user_id or query parameter"
+                )
             user_id = user_id
             query = query
-        
+
         # Check if this is a /submit command
         submit_info = writing_assistant_constructor.detect_submit_command(query)
-        
+
         session_data = {
             "group_id": None,
             "agent_id": ["assistant"],
@@ -211,8 +222,16 @@ async def store_and_search_data(
                 "timestamp": datetime.now().isoformat(),
                 "type": "message",
                 "is_submission": submit_info["is_submission"],
-                "content_type": submit_info["content_type"] if submit_info["is_submission"] else None,
-                "writing_sample": submit_info["writing_sample"] if submit_info["is_submission"] else None,
+                "content_type": (
+                    submit_info["content_type"]
+                    if submit_info["is_submission"]
+                    else None
+                ),
+                "writing_sample": (
+                    submit_info["writing_sample"]
+                    if submit_info["is_submission"]
+                    else None
+                ),
             },
         }
 
@@ -223,10 +242,7 @@ async def store_and_search_data(
         logging.debug(f"Store-and-search response status: {resp.status_code}")
         if resp.status_code != 200:
             logging.error(f"Store failed with {resp.status_code}: {resp.text}")
-            return MemoryResponse(
-                status="error",
-                message="Failed to store memory data"
-            )
+            return MemoryResponse(status="error", message="Failed to store memory data")
 
         # Search for relevant context
         search_data = {
@@ -242,10 +258,11 @@ async def store_and_search_data(
 
         logging.debug(f"Store-and-search response status: {search_resp.status_code}")
         if search_resp.status_code != 200:
-            logging.error(f"Search failed with {search_resp.status_code}: {search_resp.text}")
+            logging.error(
+                f"Search failed with {search_resp.status_code}: {search_resp.text}"
+            )
             return MemoryResponse(
-                status="error",
-                message="Failed to search memory data"
+                status="error", message="Failed to search memory data"
             )
 
         search_resp.raise_for_status()
@@ -277,8 +294,12 @@ async def store_and_search_data(
         )
 
         # Determine query type
-        query_type = "writing_style_submission" if submit_info["is_submission"] else "writing_assistant"
-        
+        query_type = (
+            "writing_style_submission"
+            if submit_info["is_submission"]
+            else "writing_assistant"
+        )
+
         # Create response message
         if submit_info["is_submission"]:
             message = "Say this: 'Thank you for submitting your writing sample. Your writing sample has been analyzed and stored.'"
@@ -298,14 +319,13 @@ async def store_and_search_data(
             data={"profile": profile_memory, "context": episodic_memory},
             formatted_query=formatted_response,
             query_type=query_type,
-            message=message
+            message=message,
         )
 
     except Exception as e:
         logging.exception("Error occurred in store_and_search_data")
         return MemoryResponse(
-            status="error",
-            message=f"Internal error in store_and_search: {str(e)}"
+            status="error", message=f"Internal error in store_and_search: {str(e)}"
         )
 
 
@@ -315,21 +335,21 @@ async def analyze_writing_style(request: MemoryRequest):
     try:
         user_id = request.user_id
         query = request.query
-        
+
         # Check if this is a /submit command
         submit_info = writing_assistant_constructor.detect_submit_command(query)
-        
+
         if not submit_info["is_submission"]:
             return MemoryResponse(
                 status="error",
-                message="This endpoint is only for writing style submissions. Use /submit command."
+                message="This endpoint is only for writing style submissions. Use /submit command.",
             )
-        
+
         # Store the submission first
         store_response = await store_data(request)
         if store_response.status != "success":
             return store_response
-        
+
         # Get existing profile to understand current writing style
         session_data = {
             "group_id": None,
@@ -350,10 +370,11 @@ async def analyze_writing_style(request: MemoryRequest):
         )
 
         if search_resp.status_code != 200:
-            logging.error(f"Search failed with {search_resp.status_code}: {search_resp.text}")
+            logging.error(
+                f"Search failed with {search_resp.status_code}: {search_resp.text}"
+            )
             return MemoryResponse(
-                status="error",
-                message="Failed to retrieve existing writing style data"
+                status="error", message="Failed to retrieve existing writing style data"
             )
 
         search_results = search_resp.json()
@@ -370,24 +391,24 @@ async def analyze_writing_style(request: MemoryRequest):
 
         # Create specialized analysis prompt
         analysis_prompt = writing_assistant_constructor.create_submission_query(
-            profile=profile_str, 
-            context="", 
-            submit_info=submit_info
+            profile=profile_str, context="", submit_info=submit_info
         )
 
         return MemoryResponse(
             status="success",
-            data={"profile": profile_memory, "writing_sample": submit_info["writing_sample"]},
+            data={
+                "profile": profile_memory,
+                "writing_sample": submit_info["writing_sample"],
+            },
             formatted_query=analysis_prompt,
             query_type="writing_style_analysis",
-            message=f"Writing sample for {submit_info['content_type']} content type ready for analysis"
+            message=f"Writing sample for {submit_info['content_type']} content type ready for analysis",
         )
 
     except Exception as e:
         logging.exception("Error occurred in analyze_writing_style")
         return MemoryResponse(
-            status="error",
-            message=f"Internal error in analyze_writing_style: {str(e)}"
+            status="error", message=f"Internal error in analyze_writing_style: {str(e)}"
         )
 
 
@@ -437,7 +458,7 @@ async def get_user_writing_styles(user_id: str):
             "status": "success",
             "user_id": user_id,
             "writing_styles": writing_styles,
-            "available_content_types": list(writing_styles.keys())
+            "available_content_types": list(writing_styles.keys()),
         }
 
     except Exception as e:

@@ -12,7 +12,7 @@ import json
 # -----------------------
 WRITING_STYLE_FEATURES = [
     "tone",
-    "register", 
+    "register",
     "voice",
     "sentence_structure",
     "pacing",
@@ -34,7 +34,7 @@ WRITING_STYLE_FEATURES = [
     "signature_phrases",
     "patterned_openings_or_closings",
     "motifs_or_themes",
-    "use_of_headings_subheadings"
+    "use_of_headings_subheadings",
 ]
 
 # -----------------------
@@ -435,6 +435,7 @@ CONFIG = {
     "WRITING_STYLE_FEATURES": WRITING_STYLE_FEATURES,
 }
 
+
 # -----------------------
 # Main Configuration Export
 # -----------------------
@@ -442,17 +443,21 @@ def get_writing_assistant_config():
     """Get the complete writing assistant configuration"""
     return CONFIG.copy()
 
+
 def get_update_prompt():
     """Get the profile update prompt"""
     return UPDATE_PROMPT
+
 
 def get_query_construction_prompt():
     """Get the query construction prompt"""
     return QUERY_CONSTRUCTION_PROMPT
 
+
 def get_writing_style_features():
     """Get the list of writing style features"""
     return WRITING_STYLE_FEATURES.copy()
+
 
 def get_consolidation_prompt():
     """Get the consolidation prompt"""
