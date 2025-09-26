@@ -40,6 +40,10 @@ gpu = [
     "sentence-transformers>=5.1.0",
 ]
 
+test = [
+    "pytest-asyncio>=0.23.7"
+]
+
 [project.scripts]
 memmachine-server = "memmachine.server.app:main"
 memmachine-sync-profile-schema = "memmachine.profile_memory.storage.syncschema:main"
