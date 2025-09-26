@@ -88,7 +88,6 @@
             "pages": [
               "examples/introduction",
               "examples/agents",
-              "examples/hackathon",
               "examples/python",
               "examples/rest",
               "examples/mcp"
