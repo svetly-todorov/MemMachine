@@ -3,6 +3,16 @@
 #
 FROM python:3.12-slim-trixie AS builder
 
+# Update OS and Python/PIP Packages
+# Install curl
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y curl && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN python -m pip install --upgrade pip
+
 # Copy uv binary from the source image INTO the builder stage
 COPY --from=ghcr.io/astral-sh/uv:0.8.15 /uv /uvx /usr/local/bin/
 
@@ -38,6 +48,16 @@ RUN --mount=type=cache,target=/root/.cache/uv \
 # Stage 2: Final
 #
 FROM python:3.12-slim-trixie AS final
+
+# Update OS and Python/PIP Packages
+# Install curl
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get install -y curl && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+RUN python -m pip install --upgrade pip
 
 WORKDIR /app
 

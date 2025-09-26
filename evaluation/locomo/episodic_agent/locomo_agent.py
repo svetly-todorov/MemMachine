@@ -24,13 +24,10 @@ LOCOMO_EXECUTOR_INSTRUCTIONS = """
 You are the executor agent. As the executor, your role is to answer the user's quesiton using the memories in the context and by querying for more memories if necessary.
 
 # ENVIRONMENT
-- You will see two types of memories in your context:
-    1. Episodic memories
-        - Episodic memories come directly from the conversation source text and serve as the ground truth.
-        - Each episodic memory has a timestamp and a speaker associated with it.
-        - Some episodic memories may contain a blip caption for an attached image.
-    2. Profile memories
-        - Profiles memories are inferred from the conversation, and may not be as reliable as episodic memories.
+You will see episodic memories in your context:
+    - Episodic memories come directly from the conversation source text and serve as the ground truth.
+    - Each episodic memory has a timestamp for the message and a speaker associated with the message.
+    - Some episodic memories may contain a blip caption for an attached image.
 
 # ACTION SPACE
 There are 2 actions available to you:
@@ -76,8 +73,8 @@ async def search_memories(
                 "user_id": user_ids[0],
                 "limit": 30,
                 "session": {
-                    "group_id": str(group_id),
-                    "session_id": str(session_id),
+                    "group_id": group_id,
+                    "session_id": session_id,
                     "user_id": user_ids,
                     "agent_id": agent_ids,
                 },
@@ -87,9 +84,16 @@ async def search_memories(
 
     search_result = json.loads(search_response.content[0].text)["content"]
 
+    def rename_property(property_key):
+        if property_key == "source_timestamp":
+            return "timestamp"
+        elif property_key == "producer_id":
+            return "speaker"
+        return property_key
+
     wanted_episode_properties = [
-        "timestamp",
-        "speaker",
+        "source_timestamp",
+        "producer_id",
         "content",
         "blip_caption",
     ]
@@ -99,7 +103,7 @@ async def search_memories(
     )
     episodic_memories = [
         {
-            wanted_property: (
+            rename_property(wanted_property): (
                 (
                     episode["user_metadata"].get(wanted_property)
                     if isinstance(episode["user_metadata"], dict)
@@ -112,16 +116,9 @@ async def search_memories(
         for episode in episodes
     ]
 
-    profiles = search_result["profile_memory"]
-    profile_memories = [
-        {key: value for key, value in profile.items() if key != "metadata"}
-        for profile in profiles
-    ]
-
     return json.dumps(
         {
             "episodic_memories": episodic_memories,
-            "profile_memories": profile_memories,
         },
         indent=4,
     )
@@ -151,7 +148,13 @@ async def locomo_response(
         ) as mcp_server
     ):
         search_result = await search_memories(
-            mcp_server, group_id, group_id, users, [], None, query
+            mcp_server,
+            f"group_{group_id}",
+            f"group_{group_id}",
+            users,
+            [],
+            None,
+            query,
         )
 
         @dataclass
@@ -187,8 +190,8 @@ async def locomo_response(
             on_invoke_tool=functools.partial(
                 search_memories,
                 mcp_server,
-                group_id,
-                group_id,
+                f"group_{group_id}",
+                f"group_{group_id}",
                 users,
                 [],
             ),
