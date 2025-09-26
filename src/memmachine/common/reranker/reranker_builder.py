@@ -38,7 +38,17 @@ class RerankerBuilder(Builder):
 
                 return BM25Reranker(config)
             case "cross-encoder":
-                from .cross_encoder_reranker import CrossEncoderReranker
+                try:
+                    from .cross_encoder_reranker import CrossEncoderReranker
+                except ImportError as e:
+                    raise ValueError(
+                        "sentence-transformers is required "
+                        "for CrossEncoderReranker. "
+                        "Please install it with "
+                        "`pip install sentence-transformers`, "
+                        "or by including GPU dependencies with "
+                        "`pip install memmachine[gpu]`."
+                    ) from e
 
                 return CrossEncoderReranker(config)
             case "embedder":
