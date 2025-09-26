@@ -3,16 +3,12 @@ Writing Assistant prompt for MemMachine
 Handles writing style analysis and content generation using persona-based approach
 """
 
-from datetime import datetime
-import zoneinfo
-import json
-
 # -----------------------
 # WRITING STYLE FEATURES
 # -----------------------
 WRITING_STYLE_FEATURES = [
     "tone",
-    "register", 
+    "register",
     "voice",
     "sentence_structure",
     "pacing",
@@ -34,7 +30,7 @@ WRITING_STYLE_FEATURES = [
     "signature_phrases",
     "patterned_openings_or_closings",
     "motifs_or_themes",
-    "use_of_headings_subheadings"
+    "use_of_headings_subheadings",
 ]
 
 # -----------------------
@@ -313,7 +309,7 @@ User Input:
 # -----------------------
 # Query Construction Prompt
 # -----------------------
-QUERY_CONSTRUCTION_PROMPT = f"""
+QUERY_CONSTRUCTION_PROMPT = """
 You are a writing assistant that helps users write content in their established writing style.
 
 **WRITING STYLE USAGE:**
@@ -342,9 +338,9 @@ You are a writing assistant that helps users write content in their established 
 - Maintain their typical emotional intensity and personality traits
 - Follow their preferred logical flow and organization patterns
 
-The writing style profile is: {{profile}}.
-The conversation history is: {{context}}.
-The user's request is: {{query}}.
+The writing style profile is: {profile}.
+The conversation history is: {context}.
+The user's request is: {query}.
 """
 
 # -----------------------
@@ -435,6 +431,7 @@ CONFIG = {
     "WRITING_STYLE_FEATURES": WRITING_STYLE_FEATURES,
 }
 
+
 # -----------------------
 # Main Configuration Export
 # -----------------------
@@ -442,17 +439,21 @@ def get_writing_assistant_config():
     """Get the complete writing assistant configuration"""
     return CONFIG.copy()
 
+
 def get_update_prompt():
     """Get the profile update prompt"""
     return UPDATE_PROMPT
+
 
 def get_query_construction_prompt():
     """Get the query construction prompt"""
     return QUERY_CONSTRUCTION_PROMPT
 
+
 def get_writing_style_features():
     """Get the list of writing style features"""
     return WRITING_STYLE_FEATURES.copy()
+
 
 def get_consolidation_prompt():
     """Get the consolidation prompt"""

@@ -3,10 +3,6 @@ Writing Assistant prompt for MemMachine
 Handles writing style analysis and content generation using persona-based approach
 """
 
-from datetime import datetime
-import zoneinfo
-import json
-
 # -----------------------
 # WRITING STYLE FEATURES
 # -----------------------
@@ -313,7 +309,7 @@ User Input:
 # -----------------------
 # Query Construction Prompt
 # -----------------------
-QUERY_CONSTRUCTION_PROMPT = f"""
+QUERY_CONSTRUCTION_PROMPT = """
 You are a writing assistant that helps users write content in their established writing style.
 
 **WRITING STYLE USAGE:**
@@ -342,9 +338,9 @@ You are a writing assistant that helps users write content in their established 
 - Maintain their typical emotional intensity and personality traits
 - Follow their preferred logical flow and organization patterns
 
-The writing style profile is: {{profile}}.
-The conversation history is: {{context}}.
-The user's request is: {{query}}.
+The writing style profile is: {profile}.
+The conversation history is: {context}.
+The user's request is: {query}.
 """
 
 # -----------------------

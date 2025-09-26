@@ -1,7 +1,6 @@
 import os
 import requests
 import logging
-import json
 from datetime import datetime
 from fastapi import FastAPI, HTTPException, Query
 from fastapi.responses import PlainTextResponse
