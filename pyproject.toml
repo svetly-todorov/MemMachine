@@ -43,6 +43,7 @@ gpu = [
 [project.scripts]
 memmachine-server = "memmachine.server.app:main"
 memmachine-sync-profile-schema = "memmachine.profile_memory.storage.syncschema:main"
+memmachine-nltk-setup = "memmachine:setup_nltk"
 
 [project.urls]
 Homepage = "https://github.com/MemMachine/MemMachine"
