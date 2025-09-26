@@ -1,6 +1,6 @@
 logging:
   path: /tmp/memory_log
-  level: info | debug | error
+  level: info #| debug | error
 
 long_term_memory:
   derivative_deriver: sentence
@@ -54,14 +54,3 @@ reranker:
 
 prompt:
   profile: writing_assistant_prompt
-
-
-
-
-
-
-
-
-
-
-
