@@ -460,7 +460,7 @@ async def get_user_writing_styles(user_id: str):
             "available_content_types": list(writing_styles.keys()),
         }
 
-    except Exception as e:
+    except Exception:
         logging.exception("Error occurred in get_user_writing_styles")
         return {"status": "error", "message": "Internal server error"}
 
