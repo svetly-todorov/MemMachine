@@ -109,8 +109,8 @@ class EpisodicMemory:
                 self._memory_context,
             )
 
-        if len(long_term_config) > 0 \
-           and long_term_config.get("enabled") != "false":
+        if (len(long_term_config) > 0
+                and long_term_config.get("enabled") != "false"):
             # Initialize long-term declarative memory
             self._long_term_memory = LongTermMemory(
                 config,
