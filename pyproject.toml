@@ -42,7 +42,6 @@ cpu = [
 gpu = [
     "sentence-transformers>=5.1.0",
 ]
-
 test = [
     "pytest-asyncio>=0.23.7"
 ]
