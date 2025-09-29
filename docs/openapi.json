@@ -7,8 +7,12 @@
   },
   "servers": [
     {
+<<<<<<< Updated upstream
       "url": "https://localhost:8000/v1",
       "description": "Primary base URL for RESTful and MCP endpoints (all REST paths implicitly start with /v1, MCP paths start with /mcp)."
+=======
+      "url": "http://localhost:8080/v1"
+>>>>>>> Stashed changes
     }
   ],
   "tags": [
