@@ -58,7 +58,7 @@ services:
 
   # MemMachine application
   memmachine:
-    image: memmachine/memmachine
+    image: ${MEMMACHINE_IMAGE:-memmachine/memmachine}
     container_name: memmachine-app
     restart: unless-stopped
     ports:

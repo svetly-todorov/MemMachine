@@ -68,15 +68,42 @@ check_env_file() {
 check_config_file() {
     if [ ! -f "configuration.yml" ]; then
         print_warning "configuration.yml file not found. Creating from template..."
-        if [ -f "sample_configs/episodic_memory_config.sample" ]; then
-            cp sample_configs/episodic_memory_config.sample configuration.yml
-            print_success "Created configuration.yml file from sample_configs/episodic_memory_config.sample"
+        
+        # Ask user for CPU or GPU configuration, defaulting to CPU
+        read -p "Which configuration would you like to use for the Docker Image? (CPU/GPU) [CPU]: " config_type_input
+        local config_type=$(echo "${config_type_input:-CPU}" | tr '[:lower:]' '[:upper:]')
+
+        if [ "$config_type" = "GPU" ]; then
+            CONFIG_SOURCE="sample_configs/episodic_memory_config.gpu.sample"
+            MEMMACHINE_IMAGE="memmachine/memmachine:latest-gpu"
+            print_info "GPU configuration selected."
+        else
+            if [ -n "$config_type_input" ] && [ "$config_type" != "CPU" ]; then
+                print_warning "Invalid selection. Defaulting to CPU."
+            else
+                print_info "CPU configuration selected."
+            fi
+            CONFIG_SOURCE="sample_configs/episodic_memory_config.cpu.sample"
+            MEMMACHINE_IMAGE="memmachine/memmachine:latest-cpu"
+        fi
+
+        # Update .env file with the selected image
+        if [ -f ".env" ]; then
+            # Remove existing MEMMACHINE_IMAGE from .env if it exists
+            sed -i '/^MEMMACHINE_IMAGE=/d' .env
+        fi
+        echo "MEMMACHINE_IMAGE=${MEMMACHINE_IMAGE}" >> .env
+        print_success "Set MEMMACHINE_IMAGE to ${MEMMACHINE_IMAGE} in .env file"
+
+        if [ -f "$CONFIG_SOURCE" ]; then
+            cp "$CONFIG_SOURCE" configuration.yml
+            print_success "Created configuration.yml file from $CONFIG_SOURCE"
             print_warning "Please edit configuration.yml file with your configuration before continuing"
             print_warning "Especially set your API keys and database credentials"
             print_info "Exiting script. Please edit configuration.yml file and re-run the script."
             exit 0
         else
-            print_error "sample_configs/episodic_memory_config.sample file not found. Please create configuration.yml file manually."
+            print_error "$CONFIG_SOURCE file not found. Please create configuration.yml file manually."
             exit 1
         fi
     else
