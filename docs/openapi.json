@@ -1,23 +1,24 @@
 {
   "openapi": "3.0.0",
   "info": {
-    "title": "MemMachine API",
+    "title": "MemMachine Unified API",
     "version": "1.0.0",
-    "description": "API endpoints for interacting with the Profile Memory and Episodic Memory components of the MemMachine memory system."
+    "description": "Unified API specification for the MemMachine memory system, detailing both standard RESTful endpoints for direct interaction and dedicated MCP Server endpoints optimized for LLM tool use."
   },
   "servers": [
     {
-      "url": "https://localhost:8000/v1"
+      "url": "https://localhost:8000/v1",
+      "description": "Primary base URL for RESTful and MCP endpoints (all REST paths implicitly start with /v1, MCP paths start with /mcp)."
     }
   ],
   "tags": [
     {
       "name": "RESTful APIs",
-      "description": "Standard RESTful API endpoints for managing memories and sessions."
+      "description": "Standard RESTful API endpoints, typically consumed directly by applications and front-end clients for general memory management."
     },
     {
       "name": "MCP Server APIs",
-      "description": "API endpoints exposed as tools and resources for use with an LLM via the MCP server."
+      "description": "API endpoints exposed as tools and resources, primarily for use with an LLM via the MCP server/FastMCP implementation."
     }
   ],
   "paths": {
@@ -27,7 +28,8 @@
           "RESTful APIs"
         ],
         "summary": "Add Memories",
-        "description": "This endpoint first retrieves the appropriate episodic memory instance based on the session context (group, agent, user, session IDs). It then adds the episode to the episodic memory. If successful, it also passes the message to the profile memory for ingestion.",
+        "description": "Retrieves the appropriate memory instance and adds the episode to both episodic and profile memory.",
+        "operationId": "add_memory",
         "requestBody": {
           "required": true,
           "content": {
@@ -54,8 +56,9 @@
         "tags": [
           "RESTful APIs"
         ],
-        "summary": "Delete Memories",
-        "description": "Deletes all data for a particular session.",
+        "summary": "Delete Session Data",
+        "description": "Deletes all episodic and profile data associated with a particular session.",
+        "operationId": "delete_session_data",
         "requestBody": {
           "required": true,
           "content": {
@@ -82,7 +85,8 @@
           "RESTful APIs"
         ],
         "summary": "Search Memories",
-        "description": "Retrieves the relevant episodic memory instance and then performs concurrent searches in both the episodic memory and the profile memory. The results are combined into a single response object.",
+        "description": "Performs concurrent searches in both episodic and profile memory based on the provided query and session context.",
+        "operationId": "search_memory",
         "requestBody": {
           "required": true,
           "content": {
@@ -116,7 +120,8 @@
           "RESTful APIs"
         ],
         "summary": "Get All Sessions",
-        "description": "Get all sessions",
+        "description": "Retrieves a list of all active memory sessions managed by the system.",
+        "operationId": "get_all_sessions",
         "responses": {
           "200": {
             "description": "A list of all sessions.",
@@ -136,8 +141,9 @@
         "tags": [
           "RESTful APIs"
         ],
-        "summary": "Get User's Sessions",
-        "description": "Get all sessions for a particular user",
+        "summary": "Get User Sessions",
+        "description": "Retrieves all sessions for a particular user ID.",
+        "operationId": "get_sessions_for_user",
         "parameters": [
           {
             "name": "user_id",
@@ -145,7 +151,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The ID of the user whose sessions are requested."
           }
         ],
         "responses": {
@@ -167,8 +174,9 @@
         "tags": [
           "RESTful APIs"
         ],
-        "summary": "Get Group's Sessions",
-        "description": "Get all sessions for a particular group",
+        "summary": "Get Group Sessions",
+        "description": "Retrieves all sessions for a particular group ID.",
+        "operationId": "get_sessions_for_group",
         "parameters": [
           {
             "name": "group_id",
@@ -176,7 +184,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The ID of the group whose sessions are requested."
           }
         ],
         "responses": {
@@ -198,8 +207,9 @@
         "tags": [
           "RESTful APIs"
         ],
-        "summary": "Get Agent's Sessions",
-        "description": "Get all sessions for a particular agent",
+        "summary": "Get Agent Sessions",
+        "description": "Retrieves all sessions for a particular agent ID.",
+        "operationId": "get_sessions_for_agent",
         "parameters": [
           {
             "name": "agent_id",
@@ -207,7 +217,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The ID of the agent whose sessions are requested."
           }
         ],
         "responses": {
@@ -224,13 +235,54 @@
         }
       }
     },
+    "/health": {
+      "get": {
+        "tags": [
+          "RESTful APIs"
+        ],
+        "summary": "Health Check",
+        "description": "Health check endpoint for container orchestration, verifying initialization of memory managers and basic service status.",
+        "operationId": "health_check",
+        "responses": {
+          "200": {
+            "description": "Service is healthy.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "healthy", "description": "The health status of the service." },
+                    "service": { "type": "string", "example": "memmachine", "description": "The name of the service." },
+                    "version": { "type": "string", "example": "1.0.0", "description": "The version of the service." },
+                    "memory_managers": {
+                      "type": "object",
+                      "description": "Status of core memory components.",
+                      "properties": {
+                          "profile_memory": { "type": "boolean", "description": "True if ProfileMemory is initialized." },
+                          "episodic_memory": { "type": "boolean", "description": "True if EpisodicMemoryManager is initialized." }
+                      },
+                      "required": ["profile_memory", "episodic_memory"]
+                    }
+                  },
+                  "required": ["status", "service", "version", "memory_managers"]
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Service is unhealthy or memory managers are not initialized."
+          }
+        }
+      }
+    },
     "/mcp/add_session_memory": {
       "post": {
         "tags": [
           "MCP Server APIs"
         ],
-        "summary": "Add Memory",
-        "description": "Adds a memory episode directly using the session data provided in the `NewEpisode` object. This endpoint is for internal use by LLMs via FastMCP.",
+        "summary": "Tool: Add Memory (Self-Contained)",
+        "description": "Adds a memory episode directly using the full session data provided in the `NewEpisode` object. Useful when the LLM needs to explicitly state the session context. This is an LLM tool.",
+        "operationId": "mcp_add_session_memory",
         "requestBody": {
           "required": true,
           "content": {
@@ -249,9 +301,10 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "status": { "type": "integer" },
-                    "error_msg": { "type": "string" }
-                  }
+                    "status": { "type": "integer", "description": "Status code (0 for success)." },
+                    "error_msg": { "type": "string", "description": "Error message if status is non-zero." }
+                  },
+                  "required": ["status", "error_msg"]
                 }
               }
             }
@@ -264,8 +317,9 @@
         "tags": [
           "MCP Server APIs"
         ],
-        "summary": "Search Memory",
-        "description": "Searches both episodic and profile memories for the provided query. This endpoint is for internal use by LLMs via FastMCP.",
+        "summary": "Tool: Search Memory (Self-Contained)",
+        "description": "Searches both episodic and profile memories for the provided query using the full session data in the request body. This is an LLM tool.",
+        "operationId": "mcp_search_session_memory",
         "requestBody": {
           "required": true,
           "content": {
@@ -295,8 +349,9 @@
         "tags": [
           "MCP Server APIs"
         ],
-        "summary": "Delete Session Data",
-        "description": "Deletes all data associated with the provided session data. This endpoint is for internal use by LLMs via FastMCP.",
+        "summary": "Tool: Delete Session Data (Self-Contained)",
+        "description": "Deletes all data associated with the provided session data. This is an LLM tool.",
+        "operationId": "mcp_delete_session_data",
         "requestBody": {
           "required": true,
           "content": {
@@ -315,9 +370,10 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "status": { "type": "integer" },
-                    "error_msg": { "type": "string" }
-                  }
+                    "status": { "type": "integer", "description": "Status code (0 for success)." },
+                    "error_msg": { "type": "string", "description": "Error message if status is non-zero." }
+                  },
+                  "required": ["status", "error_msg"]
                 }
               }
             }
@@ -330,8 +386,9 @@
         "tags": [
           "MCP Server APIs"
         ],
-        "summary": "Delete All Data",
-        "description": "Deletes all data associated with the session stored in the MCP context. This endpoint is for internal use by LLMs via FastMCP.",
+        "summary": "Tool: Delete All Data (Contextual)",
+        "description": "Deletes all data associated with the *currently active session* stored in the MCP context. This LLM tool does not require a request body.",
+        "operationId": "mcp_delete_data",
         "requestBody": {
           "required": false,
           "content": {
@@ -348,9 +405,10 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "status": { "type": "integer" },
-                    "error_msg": { "type": "string" }
-                  }
+                    "status": { "type": "integer", "description": "Status code (0 for success)." },
+                    "error_msg": { "type": "string", "description": "Error message if status is non-zero." }
+                  },
+                  "required": ["status", "error_msg"]
                 }
               }
             }
@@ -363,8 +421,9 @@
         "tags": [
           "MCP Server APIs"
         ],
-        "summary": "Memory Sessions",
-        "description": "Retrieves all memory sessions. This endpoint is for internal use by LLMs via FastMCP.",
+        "summary": "Resource: All Memory Sessions",
+        "description": "Retrieves all memory sessions as an LLM resource.",
+        "operationId": "mcp_get_sessions",
         "responses": {
           "200": {
             "description": "An AllSessionsResponse containing a list of all sessions.",
@@ -384,8 +443,9 @@
         "tags": [
           "MCP Server APIs"
         ],
-        "summary": "Get User's Sessions",
-        "description": "Retrieves all sessions for a specific user. This endpoint is for internal use by LLMs via FastMCP.",
+        "summary": "Resource: Get User Sessions",
+        "description": "Retrieves all sessions for a specific user as an LLM resource.",
+        "operationId": "mcp_get_user_sessions",
         "parameters": [
           {
             "name": "user_id",
@@ -393,7 +453,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The ID of the user whose sessions are requested."
           }
         ],
         "responses": {
@@ -415,8 +476,9 @@
         "tags": [
           "MCP Server APIs"
         ],
-        "summary": "Get Group's Sessions",
-        "description": "Retrieves all sessions for a specific group. This endpoint is for internal use by LLMs via FastMCP.",
+        "summary": "Resource: Get Group Sessions",
+        "description": "Retrieves all sessions for a specific group as an LLM resource.",
+        "operationId": "mcp_get_group_sessions",
         "parameters": [
           {
             "name": "group_id",
@@ -424,7 +486,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The ID of the group whose sessions are requested."
           }
         ],
         "responses": {
@@ -446,8 +509,9 @@
         "tags": [
           "MCP Server APIs"
         ],
-        "summary": "Get Agent's Sessions",
-        "description": "Retrieves all sessions for a specific agent. This endpoint is for internal use by LLMs via FastMCP.",
+        "summary": "Resource: Get Agent Sessions",
+        "description": "Retrieves all sessions for a specific agent as an LLM resource.",
+        "operationId": "mcp_get_agent_sessions",
         "parameters": [
           {
             "name": "agent_id",
@@ -455,7 +519,8 @@
             "required": true,
             "schema": {
               "type": "string"
-            }
+            },
+            "description": "The ID of the agent whose sessions are requested."
           }
         ],
         "responses": {
@@ -476,44 +541,56 @@
   "components": {
     "schemas": {
       "SessionData": {
+        "title": "SessionData",
         "type": "object",
+        "description": "Defines the context of a memory session.",
         "properties": {
           "group_id": {
             "type": "string",
-            "nullable": true
+            "nullable": true,
+            "description": "Optional group ID."
           },
           "agent_id": {
             "type": "array",
             "items": {
               "type": "string"
             },
-            "nullable": true
+            "nullable": true,
+            "description": "List of agents involved in the session."
           },
           "user_id": {
             "type": "array",
             "items": {
               "type": "string"
             },
-            "nullable": true
+            "description": "List of users involved in the session."
           },
           "session_id": {
-            "type": "string"
+            "type": "string",
+            "description": "Unique session identifier."
           }
-        }
+        },
+        "required": ["user_id", "session_id"]
       },
       "NewEpisode": {
+        "title": "NewEpisode",
         "type": "object",
+        "description": "Data model for adding a new memory episode.",
         "properties": {
           "session": {
-            "$ref": "#/components/schemas/SessionData"
+            "$ref": "#/components/schemas/SessionData",
+            "description": "The session context for the episode."
           },
           "producer": {
-            "type": "string"
+            "type": "string",
+            "description": "The ID of the entity that produced the content."
           },
           "produced_for": {
-            "type": "string"
+            "type": "string",
+            "description": "The ID of the entity the content was produced for."
           },
           "episode_content": {
+            "description": "The content, either as raw text or an embedding vector.",
             "oneOf": [
               {
                 "type": "string"
@@ -527,91 +604,121 @@
             ]
           },
           "episode_type": {
-            "type": "string"
+            "type": "string",
+            "description": "The type of content (e.g., 'dialog', 'summary')."
           },
           "metadata": {
             "type": "object",
             "additionalProperties": true,
-            "nullable": true
+            "nullable": true,
+            "description": "Optional arbitrary metadata."
           }
-        }
+        },
+        "required": ["session", "producer", "produced_for", "episode_content", "episode_type"]
       },
       "SearchQuery": {
+        "title": "SearchQuery",
         "type": "object",
+        "description": "Data model for querying the memory system.",
         "properties": {
           "session": {
-            "$ref": "#/components/schemas/SessionData"
+            "$ref": "#/components/schemas/SessionData",
+            "description": "The session context for the search."
           },
           "query": {
-            "type": "string"
+            "type": "string",
+            "description": "The natural language query or concept."
           },
           "filter": {
             "type": "object",
             "additionalProperties": true,
-            "nullable": true
+            "nullable": true,
+            "description": "Optional filters for episodic/profile memory."
           },
           "limit": {
             "type": "integer",
-            "nullable": true
+            "nullable": true,
+            "description": "Maximum number of results to return."
           }
-        }
+        },
+        "required": ["session", "query"]
       },
       "SearchResult": {
+        "title": "SearchResult",
         "type": "object",
+        "description": "Unified response model for memory search results.",
         "properties": {
           "status": {
             "type": "integer",
-            "default": 0
+            "default": 0,
+            "description": "Status code (0 for success, non-zero for error)."
           },
           "content": {
             "type": "object",
-            "additionalProperties": true
+            "additionalProperties": true,
+            "description": "The combined search results from episodic and profile memory."
           }
-        }
+        },
+        "required": ["status", "content"]
       },
       "DeleteDataRequest": {
+        "title": "DeleteDataRequest",
         "type": "object",
+        "description": "Data model for deleting all data associated with a session.",
         "properties": {
           "session": {
-            "$ref": "#/components/schemas/SessionData"
+            "$ref": "#/components/schemas/SessionData",
+            "description": "The session context whose data should be deleted."
           }
-        }
+        },
+        "required": ["session"]
       },
       "MemorySession": {
+        "title": "MemorySession",
         "type": "object",
+        "description": "Model representing a single active memory session.",
         "properties": {
           "user_ids": {
             "type": "array",
             "items": {
               "type": "string"
-            }
+            },
+            "description": "List of user IDs associated with the session."
           },
           "session_id": {
-            "type": "string"
+            "type": "string",
+            "description": "Unique session identifier."
           },
           "group_id": {
             "type": "string",
-            "nullable": true
+            "nullable": true,
+            "description": "Optional group ID."
           },
           "agent_ids": {
             "type": "array",
             "items": {
               "type": "string"
             },
-            "nullable": true
+            "nullable": true,
+            "description": "List of agent IDs associated with the session."
           }
-        }
+        },
+        "required": ["user_ids", "session_id"]
       },
       "AllSessionsResponse": {
+        "title": "AllSessionsResponse",
         "type": "object",
+        "description": "Response model containing a list of all retrieved memory sessions.",
         "properties": {
           "sessions": {
             "type": "array",
             "items": {
               "$ref": "#/components/schemas/MemorySession"
-            }
+            },
+            "description": "The list of session objects."
           }
-        }
+        },
+        "required": ["sessions"]
       }
     }
   }
