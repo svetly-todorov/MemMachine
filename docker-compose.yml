@@ -58,7 +58,7 @@ services:
 
   # MemMachine application
   memmachine:
-    image: memmachine/memmachine
+    image: memmachine/memmachine:latest-cpu
     container_name: memmachine-app
     restart: unless-stopped
     ports:

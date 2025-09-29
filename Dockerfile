@@ -22,14 +22,16 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 
 # Determine whether to include GPU dependencies
-ARG GPU="false"
+ARG TARGET="cpu"
 
 # Install dependencies into a virtual environment, but NOT the project itself
 RUN --mount=type=cache,target=/root/.cache/uv \
-    if [ "$GPU" = "true" ]; then \
-        uv sync --locked --no-install-project --no-editable --extra gpu; \
-    else \
-        uv sync --locked --no-install-project --no-editable; \
+    uv sync --locked --no-install-project --no-editable; \
+    if [ "$TARGET" = "gpu" ]; then \
+        uv pip install sentence-transformers; \
+    elif [ "$TARGET" = "cpu" ]; then \
+        uv pip install torch --index https://download.pytorch.org/whl/cpu; \
+        uv pip install sentence-transformers; \
     fi
 
 # Copy the application source code
@@ -37,12 +39,13 @@ COPY . /app
 
 # Install the project itself from the local source
 RUN --mount=type=cache,target=/root/.cache/uv \
-    if [ "$GPU" = "true" ]; then \
-        uv sync --locked --no-editable --extra gpu; \
-    else \
-        uv sync --locked --no-editable; \
+    uv sync --locked --no-editable; \
+    if [ "$TARGET" = "gpu" ]; then \
+        uv pip install sentence-transformers; \
+    elif [ "$TARGET" = "cpu" ]; then \
+        uv pip install torch --index https://download.pytorch.org/whl/cpu; \
+        uv pip install sentence-transformers; \
     fi
-
 
 #
 # Stage 2: Final
