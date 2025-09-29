@@ -22,7 +22,7 @@ WORKDIR /app
 COPY pyproject.toml uv.lock ./
 
 # Determine whether to include GPU dependencies
-ARG TARGET="cpu"
+ARG TARGET="none"
 
 # Install dependencies into a virtual environment, but NOT the project itself
 RUN --mount=type=cache,target=/root/.cache/uv \
@@ -40,11 +40,11 @@ COPY . /app
 # Install the project itself from the local source
 RUN --mount=type=cache,target=/root/.cache/uv \
     if [ "$TARGET" = "gpu" ]; then \
-        uv sync --locked --no-install-project --no-editable --extra gpu; \
+        uv sync --locked --no-editable --extra gpu; \
     elif [ "$TARGET" = "cpu" ]; then \
-        uv sync --locked --no-install-project --no-editable --extra cpu; \
+        uv sync --locked --no-editable --extra cpu; \
     else \
-        uv sync --locked --no-install-project --no-editable; \
+        uv sync --locked --no-editable; \
     fi
 
 #
