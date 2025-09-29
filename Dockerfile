@@ -26,12 +26,12 @@ ARG TARGET="cpu"
 
 # Install dependencies into a virtual environment, but NOT the project itself
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked --no-install-project --no-editable; \
     if [ "$TARGET" = "gpu" ]; then \
-        uv pip install sentence-transformers; \
+        uv sync --locked --no-install-project --no-editable --extra gpu; \
     elif [ "$TARGET" = "cpu" ]; then \
-        uv pip install torch --index https://download.pytorch.org/whl/cpu; \
-        uv pip install sentence-transformers; \
+        uv sync --locked --no-install-project --no-editable --extra cpu; \
+    else \
+        uv sync --locked --no-install-project --no-editable; \
     fi
 
 # Copy the application source code
@@ -39,12 +39,12 @@ COPY . /app
 
 # Install the project itself from the local source
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --locked --no-editable; \
     if [ "$TARGET" = "gpu" ]; then \
-        uv pip install sentence-transformers; \
+        uv sync --locked --no-install-project --no-editable --extra gpu; \
     elif [ "$TARGET" = "cpu" ]; then \
-        uv pip install torch --index https://download.pytorch.org/whl/cpu; \
-        uv pip install sentence-transformers; \
+        uv sync --locked --no-install-project --no-editable --extra cpu; \
+    else \
+        uv sync --locked --no-install-project --no-editable; \
     fi
 
 #

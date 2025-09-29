@@ -36,6 +36,9 @@ license = "Apache-2.0"
 license-files = ["LICENSE"]
 
 [project.optional-dependencies]
+cpu = [
+    "sentence-transformers>=5.1.0",
+]
 gpu = [
     "sentence-transformers>=5.1.0",
 ]
@@ -43,6 +46,16 @@ gpu = [
 test = [
     "pytest-asyncio>=0.23.7"
 ]
+
+[tool.uv.sources]
+sentence-transformers = [
+  { index = "pytorch-cpu-index", marker = "extra == 'cpu' and extra != 'gpu'"},
+]
+
+[[tool.uv.index]]
+name = "pytorch-cpu-index"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
 
 [project.scripts]
 memmachine-server = "memmachine.server.app:main"
