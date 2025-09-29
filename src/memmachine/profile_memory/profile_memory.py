@@ -407,8 +407,8 @@ class ProfileMemory:
         )
         # Use chain-of-thought to get entity profile update commands.
         try:
-            raw = await self._model.generate_response(
-                system_prompt=self._update_prompt, user_prompt=userp
+            response_text = await self._model.generate_response(
+                system_prompt=self._update_prompt, user_prompt=user_prompt
             )
         except (IOError, ValueError) as e:
             logger.error("Eror when update profile: %s", str(e))
@@ -554,7 +554,7 @@ class ProfileMemory:
         sends a list of features to an llm to consolidated
         """
         try:
-            raw = await self._model.generate_response(
+            response_text = await self._model.generate_response(
                 system_prompt=self._consolidation_prompt,
                 user_prompt=json.dumps(memories),
             )
