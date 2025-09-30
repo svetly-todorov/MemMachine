@@ -711,9 +711,9 @@ class ProfileMemory:
             )
             await self.add_new_profile(
                 user_id,
-                memory.feature,
-                memory.value,
-                memory.tag,
+                consolidate_memory.feature,
+                consolidate_memory.value,
+                consolidate_memory.tag,
                 citations=new_citations,
                 isolations=new_isolations,
             )
