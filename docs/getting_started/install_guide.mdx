@@ -119,17 +119,18 @@ OPENAI_API_KEY="YOUR_VALID_OPENAI_API_KEY"
 
 Create a file named `config.yml` in the same directory. This file configures the various models and storage options for MemMachine.
 
-You can download this file from our GitHub repository as a template using the following curl command:
+<Note> There are two examples of `config.yml` files in the `sample_configs` directory of the GitHub repository: one for CPU-only installations and another for GPU-enabled setups. Be sure to choose the one that matches your environment.</Note>
+
+**CPU-only installations:** You can download this file from our GitHub repository as a template using the following curl command:
 ```sh
-curl -o cfg.yml https://raw.githubusercontent.com/MemMachine/MemMachine/refs/heads/main/sample_configs/episodic_memory_config.sample
+curl -o cfg.yml https://raw.githubusercontent.com/MemMachine/MemMachine/refs/heads/main/sample_configs/episodic_memory_config.cpu.sample
 ```
-Below is an example of what the `config.yml` file should look like.  
-<Note>> if you are using a CPU only installation, be sure to comment out cross-encoder lines (46, 51-53) with a '#' or remove those lines from your file, as you will not be able to use the cross-encoder reranker in that environment.</Note>
+Below is an example of what the CPU-only `config.yml` file should look like:
 
 ```sh expandable lines
 logging:
   path: /tmp/memory_log
-  level: info
+  level: info #| debug | error
 
 long_term_memory:
   derivative_deriver: sentence
@@ -145,15 +146,15 @@ Model:
   testmodel:
     model_vendor: openai
     model_name: "gpt-4o-mini"
-    api_key: "YOUR_VALID_OPENAI_API_KEY"
-
+    api_key: <YOUR_API_KEY>
+    
 storage:
   my_storage_id:
     vendor_name: neo4j
     host: localhost
     port: 7687
     user: neo4j
-    password: YOUR_NEO4J_PASSWORD
+    password: <YOUR_PASSWORD_HERE>
 
 sessionMemory:
   model_name: testmodel
@@ -164,15 +165,76 @@ sessionMemory:
 embedder:
   my_embedder_id:
     model_name: "text-embedding-3-small"
-    api_key: "YOUR_VALID_OPENAI_API_KEY"
+    api_key: <YOUR_API_KEY>
 
 reranker:
   my_reranker_id:
     type: "rrf-hybrid"
-  reranker_ids:
-    - id_ranker_id
-    - bm_ranker_id
-    - ce_ranker_id
+    reranker_ids:
+      - id_ranker_id
+      - bm_ranker_id
+  id_ranker_id:
+    type: "identity"
+  bm_ranker_id:
+    type: "bm25"
+
+prompt:
+  profile: writing_assistant_prompt
+```
+
+**GPU-enabled installations:** You can download this file from our GitHub repository as a template using the following curl command:
+```sh
+curl -o cfg.yml https://raw.githubusercontent.com/MemMachine/MemMachine/refs/heads/main/sample_configs/episodic_memory_config.gpu.sample
+```
+Below is an example of what the GPU-enabled `config.yml` file should look like:
+
+```sh expandable lines
+logging:
+  path: /tmp/memory_log
+  level: info #| debug | error
+
+long_term_memory:
+  derivative_deriver: sentence
+  metadata_prefix: "[$timestamp] $producer_id: "
+  embedder: my_embedder_id
+  reranker: my_reranker_id
+  vector_graph_store: my_storage_id
+
+SessionDB:
+  uri: sqlitetest.db
+
+Model:
+  testmodel:
+    model_vendor: openai
+    model_name: "gpt-4o-mini"
+    api_key: <YOUR_API_KEY>
+    
+storage:
+  my_storage_id:
+    vendor_name: neo4j
+    host: localhost
+    port: 7687
+    user: neo4j
+    password: <YOUR_PASSWORD_HERE>
+
+sessionMemory:
+  model_name: testmodel
+  message_capacity: 500
+  max_message_length: 16000
+  max_token_num: 8000
+
+embedder:
+  my_embedder_id:
+    model_name: "text-embedding-3-small"
+    api_key: <YOUR_API_KEY>
+
+reranker:
+  my_reranker_id:
+    type: "rrf-hybrid"
+    reranker_ids:
+      - id_ranker_id
+      - bm_ranker_id
+      - ce_ranker_id
   id_ranker_id:
     type: "identity"
   bm_ranker_id:
@@ -180,6 +242,9 @@ reranker:
   ce_ranker_id:
     type: "cross-encoder"
     model_name: "cross-encoder/qnli-electra-base"
+
+prompt:
+  profile: writing_assistant_prompt
 ```
 <Tip> Remember to replace the placeholders for your OpenAI API key and Neo4j password in this file as well.</Tip>
 </Accordion>

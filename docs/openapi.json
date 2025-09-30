@@ -7,7 +7,8 @@
   },
   "servers": [
     {
-      "url": "http://localhost:8080/v1"
+      "url": "http://localhost:8080/v1",
+      "description": "The base path for all standard RESTful API endpoints."
     }
   ],
   "tags": [
@@ -26,8 +27,8 @@
         "tags": [
           "RESTful APIs"
         ],
-        "summary": "Add Memories",
-        "description": "Retrieves the appropriate memory instance and adds the episode to both episodic and profile memory.",
+        "summary": "Add Memories (Unified)",
+        "description": "Retrieves the appropriate memory instance and adds the episode to **both** episodic and profile memory.",
         "operationId": "add_memory",
         "requestBody": {
           "required": true,
@@ -44,10 +45,10 @@
             "description": "Memory successfully added."
           },
           "400": {
-            "description": "Invalid producer or produced_for ID."
+            "description": "Invalid producer or produced_for ID (not in the session context)."
           },
           "404": {
-            "description": "No matching episodic memory instance found."
+            "description": "No matching episodic memory instance found for the session context."
           }
         }
       },
@@ -55,7 +56,7 @@
         "tags": [
           "RESTful APIs"
         ],
-        "summary": "Delete Session Data",
+        "summary": "Delete Session Data (Unified)",
         "description": "Deletes all episodic and profile data associated with a particular session.",
         "operationId": "delete_session_data",
         "requestBody": {
@@ -78,13 +79,69 @@
         }
       }
     },
+    "/memories/episodic": {
+      "post": {
+        "tags": [
+          "RESTful APIs"
+        ],
+        "summary": "Add Episodic Memory",
+        "description": "Adds a memory episode **only to episodic memory** (short-term and long-term conversational history).",
+        "operationId": "add_episodic_memory",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewEpisode"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Memory successfully added to episodic memory."
+          },
+          "400": {
+            "description": "Invalid producer or produced_for ID (not in the session context)."
+          },
+          "404": {
+            "description": "No matching episodic memory instance found for the session context."
+          }
+        }
+      }
+    },
+    "/memories/profile": {
+      "post": {
+        "tags": [
+          "RESTful APIs"
+        ],
+        "summary": "Add Profile Memory",
+        "description": "Adds a memory episode **only to profile memory** (long-term persona knowledge/facts).",
+        "operationId": "add_profile_memory",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewEpisode"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Memory successfully added to profile memory."
+          }
+        }
+      }
+    },
     "/memories/search": {
       "post": {
         "tags": [
           "RESTful APIs"
         ],
-        "summary": "Search Memories",
-        "description": "Performs concurrent searches in both episodic and profile memory based on the provided query and session context.",
+        "summary": "Search Memories (Unified)",
+        "description": "Performs concurrent searches in **both** episodic and profile memory based on the provided query and session context.",
         "operationId": "search_memory",
         "requestBody": {
           "required": true,
@@ -109,6 +166,73 @@
           },
           "404": {
             "description": "No matching episodic memory instance found."
+          }
+        }
+      }
+    },
+    "/memories/episodic/search": {
+      "post": {
+        "tags": [
+          "RESTful APIs"
+        ],
+        "summary": "Search Episodic Memory",
+        "description": "Searches **only the episodic memory** (short-term and long-term conversational history).",
+        "operationId": "search_episodic_memory",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchQuery"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Search results returned from episodic memory.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResult"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No matching episodic memory instance found."
+          }
+        }
+      }
+    },
+    "/memories/profile/search": {
+      "post": {
+        "tags": [
+          "RESTful APIs"
+        ],
+        "summary": "Search Profile Memory",
+        "description": "Searches **only the profile memory** (long-term persona knowledge/facts).",
+        "operationId": "search_profile_memory",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchQuery"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Search results returned from profile memory.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResult"
+                }
+              }
+            }
           }
         }
       }
@@ -250,20 +374,46 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "status": { "type": "string", "example": "healthy", "description": "The health status of the service." },
-                    "service": { "type": "string", "example": "memmachine", "description": "The name of the service." },
-                    "version": { "type": "string", "example": "1.0.0", "description": "The version of the service." },
+                    "status": {
+                      "type": "string",
+                      "example": "healthy",
+                      "description": "The health status of the service."
+                    },
+                    "service": {
+                      "type": "string",
+                      "example": "memmachine",
+                      "description": "The name of the service."
+                    },
+                    "version": {
+                      "type": "string",
+                      "example": "1.0.0",
+                      "description": "The version of the service."
+                    },
                     "memory_managers": {
                       "type": "object",
                       "description": "Status of core memory components.",
                       "properties": {
-                          "profile_memory": { "type": "boolean", "description": "True if ProfileMemory is initialized." },
-                          "episodic_memory": { "type": "boolean", "description": "True if EpisodicMemoryManager is initialized." }
+                        "profile_memory": {
+                          "type": "boolean",
+                          "description": "True if ProfileMemory is initialized."
+                        },
+                        "episodic_memory": {
+                          "type": "boolean",
+                          "description": "True if EpisodicMemoryManager is initialized."
+                        }
                       },
-                      "required": ["profile_memory", "episodic_memory"]
+                      "required": [
+                        "profile_memory",
+                        "episodic_memory"
+                      ]
                     }
                   },
-                  "required": ["status", "service", "version", "memory_managers"]
+                  "required": [
+                    "status",
+                    "service",
+                    "version",
+                    "memory_managers"
+                  ]
                 }
               }
             }
@@ -279,8 +429,8 @@
         "tags": [
           "MCP Server APIs"
         ],
-        "summary": "Tool: Add Memory (Self-Contained)",
-        "description": "Adds a memory episode directly using the full session data provided in the `NewEpisode` object. Useful when the LLM needs to explicitly state the session context. This is an LLM tool.",
+        "summary": "Tool: Add Memory (Unified)",
+        "description": "Adds a memory episode directly using the full session data provided in the `NewEpisode` object to **both** episodic and profile memory. This is an LLM tool.",
         "operationId": "mcp_add_session_memory",
         "requestBody": {
           "required": true,
@@ -300,10 +450,175 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "status": { "type": "integer", "description": "Status code (0 for success)." },
-                    "error_msg": { "type": "string", "description": "Error message if status is non-zero." }
+                    "status": {
+                      "type": "integer",
+                      "description": "Status code (0 for success)."
+                    },
+                    "error_msg": {
+                      "type": "string",
+                      "description": "Error message if status is non-zero."
+                    }
                   },
-                  "required": ["status", "error_msg"]
+                  "required": [
+                    "status",
+                    "error_msg"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mcp/add_episodic_memory": {
+      "post": {
+        "tags": [
+          "MCP Server APIs"
+        ],
+        "summary": "Tool: Add Episodic Memory",
+        "description": "Adds a memory episode directly using the full session data provided in the `NewEpisode` object **only to episodic memory**. This is an LLM tool.",
+        "operationId": "mcp_add_episodic_memory",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewEpisode"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Status 0 if the memory was added successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "integer",
+                      "description": "Status code (0 for success)."
+                    },
+                    "error_msg": {
+                      "type": "string",
+                      "description": "Error message if status is non-zero."
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "error_msg"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mcp/add_profile_memory": {
+      "post": {
+        "tags": [
+          "MCP Server APIs"
+        ],
+        "summary": "Tool: Add Profile Memory",
+        "description": "Adds a memory episode directly using the full session data provided in the `NewEpisode` object **only to profile memory**. This is an LLM tool.",
+        "operationId": "mcp_add_profile_memory",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/NewEpisode"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Status 0 if the memory was added successfully.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": {
+                      "type": "integer",
+                      "description": "Status code (0 for success)."
+                    },
+                    "error_msg": {
+                      "type": "string",
+                      "description": "Error message if status is non-zero."
+                    }
+                  },
+                  "required": [
+                    "status",
+                    "error_msg"
+                  ]
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mcp/search_episodic_memory": {
+      "post": {
+        "tags": [
+          "MCP Server APIs"
+        ],
+        "summary": "Tool: Search Episodic Memory",
+        "description": "Searches **only episodic memory** for the provided query using the full session data in the request body. This is an LLM tool.",
+        "operationId": "mcp_search_episodic_memory",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchQuery"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "A search result object.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResult"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/mcp/search_profile_memory": {
+      "post": {
+        "tags": [
+          "MCP Server APIs"
+        ],
+        "summary": "Tool: Search Profile Memory",
+        "description": "Searches **only profile memory** for the provided query using the full session data in the request body. This is an LLM tool.",
+        "operationId": "mcp_search_profile_memory",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SearchQuery"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "A search result object.",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/SearchResult"
                 }
               }
             }
@@ -316,8 +631,8 @@
         "tags": [
           "MCP Server APIs"
         ],
-        "summary": "Tool: Search Memory (Self-Contained)",
-        "description": "Searches both episodic and profile memories for the provided query using the full session data in the request body. This is an LLM tool.",
+        "summary": "Tool: Search Memory (Unified)",
+        "description": "Searches **both** episodic and profile memories for the provided query using the full session data in the request body. This is an LLM tool.",
         "operationId": "mcp_search_session_memory",
         "requestBody": {
           "required": true,
@@ -369,10 +684,19 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "status": { "type": "integer", "description": "Status code (0 for success)." },
-                    "error_msg": { "type": "string", "description": "Error message if status is non-zero." }
+                    "status": {
+                      "type": "integer",
+                      "description": "Status code (0 for success)."
+                    },
+                    "error_msg": {
+                      "type": "string",
+                      "description": "Error message if status is non-zero."
+                    }
                   },
-                  "required": ["status", "error_msg"]
+                  "required": [
+                    "status",
+                    "error_msg"
+                  ]
                 }
               }
             }
@@ -404,10 +728,19 @@
                 "schema": {
                   "type": "object",
                   "properties": {
-                    "status": { "type": "integer", "description": "Status code (0 for success)." },
-                    "error_msg": { "type": "string", "description": "Error message if status is non-zero." }
+                    "status": {
+                      "type": "integer",
+                      "description": "Status code (0 for success)."
+                    },
+                    "error_msg": {
+                      "type": "string",
+                      "description": "Error message if status is non-zero."
+                    }
                   },
-                  "required": ["status", "error_msg"]
+                  "required": [
+                    "status",
+                    "error_msg"
+                  ]
                 }
               }
             }
@@ -562,6 +895,7 @@
             "items": {
               "type": "string"
             },
+            "nullable": true,
             "description": "List of users involved in the session."
           },
           "session_id": {
@@ -569,7 +903,9 @@
             "description": "Unique session identifier."
           }
         },
-        "required": ["user_id", "session_id"]
+        "required": [
+          "session_id"
+        ]
       },
       "NewEpisode": {
         "title": "NewEpisode",
@@ -613,7 +949,13 @@
             "description": "Optional arbitrary metadata."
           }
         },
-        "required": ["session", "producer", "produced_for", "episode_content", "episode_type"]
+        "required": [
+          "session",
+          "producer",
+          "produced_for",
+          "episode_content",
+          "episode_type"
+        ]
       },
       "SearchQuery": {
         "title": "SearchQuery",
@@ -640,7 +982,10 @@
             "description": "Maximum number of results to return."
           }
         },
-        "required": ["session", "query"]
+        "required": [
+          "session",
+          "query"
+        ]
       },
       "SearchResult": {
         "title": "SearchResult",
@@ -655,10 +1000,13 @@
           "content": {
             "type": "object",
             "additionalProperties": true,
-            "description": "The combined search results from episodic and profile memory."
+            "description": "The combined search results from memory. Varies by endpoint."
           }
         },
-        "required": ["status", "content"]
+        "required": [
+          "status",
+          "content"
+        ]
       },
       "DeleteDataRequest": {
         "title": "DeleteDataRequest",
@@ -670,7 +1018,9 @@
             "description": "The session context whose data should be deleted."
           }
         },
-        "required": ["session"]
+        "required": [
+          "session"
+        ]
       },
       "MemorySession": {
         "title": "MemorySession",
@@ -702,7 +1052,10 @@
             "description": "List of agent IDs associated with the session."
           }
         },
-        "required": ["user_ids", "session_id"]
+        "required": [
+          "user_ids",
+          "session_id"
+        ]
       },
       "AllSessionsResponse": {
         "title": "AllSessionsResponse",
@@ -717,7 +1070,9 @@
             "description": "The list of session objects."
           }
         },
-        "required": ["sessions"]
+        "required": [
+          "sessions"
+        ]
       }
     }
   }
