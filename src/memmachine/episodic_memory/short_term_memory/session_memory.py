@@ -13,6 +13,8 @@ import asyncio
 import logging
 from collections import deque
 
+from memmachine.common.data_types import ExternalServiceAPIError
+
 from ..data_types import Episode, MemoryContext
 
 logger = logging.getLogger(__name__)
@@ -186,10 +188,12 @@ class SessionMemory:
             )
             self._summary = result[0]
             logger.debug("Summary: %s\n", self._summary)
-        except IOError as e:
-            logger.info("IOError when create summary: %s", str(e))
-        except ValueError as e:
-            logger.info("ValueError when create summary: %s", str(e))
+        except ExternalServiceAPIError:
+            logger.info("External API error when creating summary")
+        except ValueError:
+            logger.info("Value error when creating summary")
+        except RuntimeError:
+            logger.info("Runtime error when creating summary")
 
     async def get_session_memory_context(
         self, query, limit: int = 0, max_token_num: int = 0

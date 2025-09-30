@@ -4,15 +4,19 @@ OpenAI-based language model implementation.
 
 import asyncio
 import json
+import logging
 import time
 from typing import Any
+from uuid import uuid4
 
 import openai
-from openai import AsyncOpenAI
 
+from memmachine.common.data_types import ExternalServiceAPIError
 from memmachine.common.metrics_factory.metrics_factory import MetricsFactory
 
 from .language_model import LanguageModel
+
+logger = logging.getLogger(__name__)
 
 
 class OpenAILanguageModel(LanguageModel):
@@ -54,7 +58,7 @@ class OpenAILanguageModel(LanguageModel):
         if api_key is None:
             raise ValueError("Language API key must be provided")
 
-        self._client = AsyncOpenAI(api_key=api_key)
+        self._client = openai.AsyncOpenAI(api_key=api_key)
 
         metrics_factory = config.get("metrics_factory")
         if metrics_factory is not None and not isinstance(
@@ -118,44 +122,77 @@ class OpenAILanguageModel(LanguageModel):
             {"role": "user", "content": user_prompt or ""},
         ]
 
+        generate_response_call_uuid = uuid4()
+
         start_time = time.monotonic()
+
         sleep_seconds = 1
-        for attempt in range(max_attempts):
-            sleep_seconds *= 2
+        for attempt in range(1, max_attempts + 1):
             try:
+                logger.debug(
+                    "[call uuid: %s] "
+                    "Attempting to generate response using %s OpenAI language model: "
+                    "on attempt %d with max attempts %d",
+                    generate_response_call_uuid,
+                    self._model,
+                    attempt,
+                    max_attempts,
+                )
                 response = await self._client.responses.create(
                     model=self._model,
                     input=input_prompts,
                     tools=tools,
                     tool_choice=tool_choice,
                 )  # type: ignore
-            # translate vendor specific exeception to common error
-            except openai.AuthenticationError as e:
-                raise ValueError("Invalid OpenAI API key") from e
-            except openai.RateLimitError as e:
-                if attempt + 1 >= max_attempts:
-                    raise IOError("OpenAI rate limit exceeded") from e
+                break
+            except (
+                openai.RateLimitError,
+                openai.APITimeoutError,
+                openai.APIConnectionError,
+            ) as e:
+                # Exception may be retried.
+                if attempt >= max_attempts:
+                    error_message = (
+                        f"[call uuid: {generate_response_call_uuid}] "
+                        "Giving up generating response "
+                        f"after failed attempt {attempt} "
+                        f"due to retryable {type(e).__name__}: "
+                        f"max attempts {max_attempts} reached"
+                    )
+                    logger.error(error_message)
+                    raise ExternalServiceAPIError(error_message)
+
+                logger.info(
+                    "[call uuid: %s] "
+                    "Retrying generating response in %d seconds "
+                    "after failed attempt %d due to retryable %s...",
+                    generate_response_call_uuid,
+                    sleep_seconds,
+                    attempt,
+                    type(e).__name__,
+                )
                 await asyncio.sleep(sleep_seconds)
+                sleep_seconds *= 2
                 continue
-            except openai.APITimeoutError as e:
-                if attempt + 1 >= max_attempts:
-                    raise IOError("OpenAI API timeout") from e
-                await asyncio.sleep(sleep_seconds)
-                continue
-            except openai.APIConnectionError as e:
-                if attempt + 1 >= max_attempts:
-                    raise IOError("OpenAI API connection error") from e
-                await asyncio.sleep(sleep_seconds)
-                continue
-            except openai.BadRequestError as e:
-                raise ValueError("OpenAI invalid request") from e
-            except openai.APIError as e:
-                raise ValueError("OpenAI API error") from e
-            except openai.OpenAIError as e:
-                raise ValueError("OpenAI error") from e
-            break
+            except (openai.APIError, openai.OpenAIError) as e:
+                error_message = (
+                    f"[call uuid: {generate_response_call_uuid}] "
+                    "Giving up generating response "
+                    f"after failed attempt {attempt} "
+                    f"due to non-retryable {type(e).__name__}"
+                )
+                logger.error(error_message)
+                if isinstance(e, openai.APIError):
+                    raise ExternalServiceAPIError(error_message)
+                else:
+                    raise RuntimeError(error_message)
 
         end_time = time.monotonic()
+        logger.debug(
+            "[call uuid: %s] Response generated in %.3f seconds",
+            generate_response_call_uuid,
+            end_time - start_time,
+        )
 
         if self._collect_metrics and response.usage is not None:
             self._input_tokens_usage_counter.increment(
