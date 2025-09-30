@@ -705,15 +705,15 @@ class ProfileMemory:
                 "CITATION_CHECK",
                 extra={
                     "content_citations": new_citations,
-                    "profile_citations": memory.metadata.citations,
+                    "profile_citations": consolidate_memory.metadata.citations,
                     "think": thinking,
                 },
             )
             await self.add_new_profile(
                 user_id,
-                memory.feature,
-                memory.value,
-                memory.tag,
+                consolidate_memory.feature,
+                consolidate_memory.value,
+                consolidate_memory.tag,
                 citations=new_citations,
                 isolations=new_isolations,
             )
