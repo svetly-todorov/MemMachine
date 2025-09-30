@@ -234,7 +234,8 @@ app.mount("/metrics", make_asgi_app())
 
 @mcp.tool()
 async def mcp_add_session_memory(episode: NewEpisode) -> dict[str, Any]:
-    """MCP tool to add a memory episode for a specific session.
+    """MCP tool to add a memory episode for a specific session. It adds the
+    episode to both episodic and profile memory.
 
     This tool does not require a pre-existing open session in the context.
     It adds a memory episode directly using the session data provided in the
@@ -258,6 +259,93 @@ async def mcp_add_session_memory(episode: NewEpisode) -> dict[str, Any]:
         logger.error(e)
         return {"status": -1, "error_msg": str(e)}
     return {"status": 0, "error_msg": ""}
+
+
+@mcp.tool()
+async def mcp_add_episodic_memory(episode: NewEpisode) -> dict[str, Any]:
+    """MCP tool to add a memory episode for a specific session. It only
+    adds the episode to the episodic memory.
+
+    This tool does not require a pre-existing open session in the context.
+    It adds a memory episode directly using the session data provided in the
+    `NewEpisode` object.
+
+    Args:
+        episode: The complete new episode data, including session info.
+        ctx: The MCP context (unused).
+
+    Returns:
+        Status 0 if the memory was added successfully, Status -1 otherwise
+        with error message.
+    """
+    try:
+        await add_episodic_memory(episode)
+    except HTTPException as e:
+        sess = episode.session
+        session_name = f"""{sess.group_id}-{sess.agent_id}-
+                           {sess.user_id}-{sess.session_id}"""
+        logger.error("Failed to add memory episode for %s", session_name)
+        logger.error(e)
+        return {"status": -1, "error_msg": str(e)}
+    return {"status": 0, "error_msg": ""}
+
+@mcp.tool()
+async def mcp_add_profile_memory(episode: NewEpisode) -> dict[str, Any]:
+    """MCP tool to add a memory episode for a specific session. It only
+    adds the episode to profile memory.
+
+    This tool does not require a pre-existing open session in the context.
+    It adds a memory episode directly using the session data provided in the
+    `NewEpisode` object.
+
+    Args:
+        episode: The complete new episode data, including session info.
+        ctx: The MCP context (unused).
+
+    Returns:
+        Status 0 if the memory was added successfully, Status -1 otherwise
+        with error message.
+    """
+    try:
+        await add_profile_memory(episode)
+    except HTTPException as e:
+        sess = episode.session
+        session_name = f"""{sess.group_id}-{sess.agent_id}-
+                           {sess.user_id}-{sess.session_id}"""
+        logger.error("Failed to add memory episode for %s", session_name)
+        logger.error(e)
+        return {"status": -1, "error_msg": str(e)}
+    return {"status": 0, "error_msg": ""}
+
+
+@mcp.tool()
+async def mcp_search_episodic_memory(q: SearchQuery) -> SearchResult:
+    """MCP tool to search for episodic memories in a specific session.
+    This tool does not require a pre-existing open session in the context.
+    It searches only the episodic memory for the provided query.
+
+    Args:
+        q: The search query.
+
+    Return:
+        A SearchResult object if successful, None otherwise.
+    """
+    return await search_episodic_memory(q)
+
+
+@mcp.tool()
+async def mcp_search_profile_memory(q: SearchQuery) -> SearchResult:
+    """MCP tool to search for profile memories in a specific session.
+    This tool does not require a pre-existing open session in the context.
+    It searches only the profile memory for the provided query.
+
+    Args:
+        q: The search query.
+
+    Return:
+        A SearchResult object if successful, None otherwise.
+    """
+    return await search_profile_memory(q)
 
 
 @mcp.tool()
@@ -389,12 +477,14 @@ async def add_memory(episode: NewEpisode):
         HTTPException: 400 if the producer or produced_for IDs are invalid
                        for the given context.
     """
-    inst: EpisodicMemory = await episodic_memory.get_episodic_memory_instance(
-        group_id=episode.session.group_id,
-        agent_id=episode.session.agent_id,
-        user_id=episode.session.user_id,
-        session_id=episode.session.session_id,
-    )
+    group_id = episode.session.group_id
+    inst: EpisodicMemory | None = \
+        await episodic_memory.get_episodic_memory_instance(
+            group_id=group_id if group_id is not None else "",
+            agent_id=episode.session.agent_id,
+            user_id=episode.session.user_id,
+            session_id=episode.session.session_id,
+        )
     if inst is None:
         raise HTTPException(
             status_code=404,
@@ -435,6 +525,90 @@ async def add_memory(episode: NewEpisode):
         )
 
 
+@app.post("/v1/memories/episodic")
+async def add_episodic_memory(episode: NewEpisode):
+    """Adds a memory episode to both episodic memory.
+
+    This endpoint first retrieves the appropriate episodic memory instance
+    based on the session context (group, agent, user, session IDs). It then
+    adds the episode to the episodic memory. If successful, it also passes
+    the message to the profile memory for ingestion.
+
+    Args:
+        episode: The NewEpisode object containing the memory details.
+
+    Raises:
+        HTTPException: 404 if no matching episodic memory instance is found.
+        HTTPException: 400 if the producer or produced_for IDs are invalid
+                       for the given context.
+    """
+    group_id = episode.session.group_id
+    inst: EpisodicMemory | None = \
+        await episodic_memory.get_episodic_memory_instance(
+            group_id=group_id if group_id is not None else "",
+            agent_id=episode.session.agent_id,
+            user_id=episode.session.user_id,
+            session_id=episode.session.session_id,
+        )
+    if inst is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"""unable to find episodic memory for
+                    {episode.session.user_id},
+                    {episode.session.session_id},
+                    {episode.session.group_id},
+                    {episode.session.agent_id}""",
+        )
+    async with AsyncEpisodicMemory(inst) as inst:
+        success = await inst.add_memory_episode(
+            producer=episode.producer,
+            produced_for=episode.produced_for,
+            episode_content=episode.episode_content,
+            episode_type=episode.episode_type,
+            content_type=ContentType.STRING,
+            metadata=episode.metadata,
+        )
+        if not success:
+            raise HTTPException(
+                status_code=400,
+                detail=f"""either {episode.producer} or {episode.produced_for}
+                        is not in {episode.session.user_id}
+                        or {episode.session.agent_id}""",
+            )
+
+
+@app.post("/v1/memories/profile")
+async def add_profile_memory(episode: NewEpisode):
+    """Adds a memory episode to both profile memory.
+
+    This endpoint first retrieves the appropriate episodic memory instance
+    based on the session context (group, agent, user, session IDs). It then
+    adds the episode to the episodic memory. If successful, it also passes
+    the message to the profile memory for ingestion.
+
+    Args:
+        episode: The NewEpisode object containing the memory details.
+
+    Raises:
+        HTTPException: 404 if no matching episodic memory instance is found.
+        HTTPException: 400 if the producer or produced_for IDs are invalid
+                       for the given context.
+    """
+    group_id = episode.session.group_id
+
+    await profile_memory.add_persona_message(
+        str(episode.episode_content),
+        episode.metadata if episode.metadata is not None else {},
+        {
+            "group_id": group_id if group_id is not None else "",
+            "session_id": episode.session.session_id,
+            "producer": episode.producer,
+            "produced_for": episode.produced_for,
+        },
+        user_id=episode.producer,
+    )
+
+
 @app.post("/v1/memories/search")
 async def search_memory(q: SearchQuery) -> SearchResult:
     """Searches for memories across both episodic and profile memory.
@@ -452,12 +626,13 @@ async def search_memory(q: SearchQuery) -> SearchResult:
     Raises:
         HTTPException: 404 if no matching episodic memory instance is found.
     """
-    inst: EpisodicMemory = await episodic_memory.get_episodic_memory_instance(
-        group_id=q.session.group_id,
-        agent_id=q.session.agent_id,
-        user_id=q.session.user_id,
-        session_id=q.session.session_id,
-    )
+    inst: EpisodicMemory | None = \
+        await episodic_memory.get_episodic_memory_instance(
+            group_id=q.session.group_id,
+            agent_id=q.session.agent_id,
+            user_id=q.session.user_id,
+            session_id=q.session.session_id,
+        )
     if inst is None:
         raise HTTPException(
             status_code=404,
@@ -472,7 +647,7 @@ async def search_memory(q: SearchQuery) -> SearchResult:
         user_id = (
             q.session.user_id[0]
             if q.session.user_id is not None and len(q.session.user_id) > 0
-            else None
+            else ""
         )
         res = await asyncio.gather(
             inst.query_memory(q.query, q.limit, q.filter),
@@ -489,6 +664,73 @@ async def search_memory(q: SearchQuery) -> SearchResult:
         return SearchResult(
             content={"episodic_memory": res[0], "profile_memory": res[1]}
         )
+
+
+@app.post("/v1/memories/episodic/search")
+async def search_episodic_memory(q: SearchQuery) -> SearchResult:
+    """Searches for memories across both profile memory.
+
+    Args:
+        q: The SearchQuery object containing the query and context.
+
+    Returns:
+        A SearchResult object containing results from episodic memory.
+
+    Raises:
+        HTTPException: 404 if no matching episodic memory instance is found.
+    """
+    group_id = q.session.group_id if q.session.group_id is not None else ""
+    inst: EpisodicMemory | None = \
+        await episodic_memory.get_episodic_memory_instance(
+            group_id=group_id,
+            agent_id=q.session.agent_id,
+            user_id=q.session.user_id,
+            session_id=q.session.session_id,
+        )
+    if inst is None:
+        raise HTTPException(
+            status_code=404,
+            detail=f"""unable to find episodic memory for
+                    {q.session.user_id},
+                    {q.session.session_id},
+                    {q.session.group_id},
+                    {q.session.agent_id}""",
+        )
+    async with AsyncEpisodicMemory(inst) as inst:
+        res = await inst.query_memory(q.query, q.limit, q.filter)
+        return SearchResult(
+            content={"episodic_memory": res}
+        )
+
+
+@app.post("/v1/memories/profile/search")
+async def search_profile_memory(q: SearchQuery) -> SearchResult:
+    """Searches for memories across profile memory.
+
+    Args:
+        q: The SearchQuery object containing the query and context.
+
+    Returns:
+        A SearchResult object containing results from profile memory.
+
+    Raises:
+        HTTPException: 404 if no matching episodic memory instance is found.
+    """
+    user_id = q.session.user_id[0] if q.session.user_id is not None else ""
+    group_id = q.session.group_id if q.session.group_id is not None else ""
+
+    res = await profile_memory.semantic_search(
+        q.query,
+        q.limit if q.limit is not None else 5,
+        isolations={
+            "group_id": group_id,
+            "session_id": q.session.session_id,
+        },
+        user_id=user_id,
+    )
+    return SearchResult(
+        content={"profile_memory": res}
+    )
 
 
 @app.delete("/v1/memories")

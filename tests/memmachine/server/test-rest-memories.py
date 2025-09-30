@@ -34,19 +34,24 @@ def mock_memory_managers(monkeypatch):
     import memmachine.server.app as app_module
 
     # 1. Mock the object that will be yielded by the context manager.
-    #    This needs all the methods that are called on `inst` *inside* the `async with` block.
+    #    This needs all the methods that are called on `inst` *inside*
+    #    the `async with` block.
     mock_inst = MagicMock()
     mock_inst.add_memory_episode = AsyncMock(return_value=True)
     mock_inst.delete_data = AsyncMock()
-    mock_inst.get_memory_context.return_value = MagicMock(group_id="g", session_id="s")
+    mock_inst.get_memory_context.return_value = \
+        MagicMock(group_id="g", session_id="s")
+    mock_inst.query_memory = \
+        AsyncMock(return_value=([], [], ["EpisodicMemory"]))
+
 
     # 2. Create a mock async context manager that yields the mock instance.
     mock_context_manager = AsyncMock()
     mock_context_manager.__aenter__.return_value = mock_inst
 
     # 3. Create a mock for the AsyncEpisodicMemory class itself.
-    #    When `AsyncEpisodicMemory(inst)` is called in the app, this mock will be
-    #    called instead, returning our mock context manager.
+    #    When `AsyncEpisodicMemory(inst)` is called in the app, this mock will
+    #    be called instead, returning our mock context manager.
     MockAsyncEpisodicMemory = MagicMock(return_value=mock_context_manager)
 
     # 4. Mock the other dependencies.
@@ -58,11 +63,24 @@ def mock_memory_managers(monkeypatch):
         async def add_persona_message(self, *args, **kwargs):
             pass
 
+        async def semantic_search(self, *args, **kwargs):
+            return []
+
+
     # 5. Apply all patches to the app module.
-    monkeypatch.setattr(app_module, "episodic_memory", DummyEpisodicMemoryManager())
+    monkeypatch.setattr(
+        app_module,
+        "episodic_memory",
+        DummyEpisodicMemoryManager()
+    )
     monkeypatch.setattr(app_module, "profile_memory", DummyProfileMemory())
-    # This is the crucial fix: patch the name in the module where it's looked up.
-    monkeypatch.setattr(app_module, "AsyncEpisodicMemory", MockAsyncEpisodicMemory)
+    # This is the crucial fix: patch the name in the module where it's looked
+    # up.
+    monkeypatch.setattr(
+        app_module,
+        "AsyncEpisodicMemory",
+        MockAsyncEpisodicMemory
+    )
 
 
 # --- Base Payloads for DRY Tests ---
@@ -85,6 +103,20 @@ def valid_post_payload():
     }
 
 @pytest.fixture
+def valid_query_payload():
+    """Provides a valid, complete payload for query requests."""
+    return {
+        "session": {
+            "group_id": "group1",
+            "agent_id": ["agent1", "agent2"],
+            "user_id": ["user1", "user2"],
+            "session_id": "session1"
+        },
+        "query": "test"
+    }
+
+
+@pytest.fixture
 def valid_delete_payload():
     """Provides a valid payload for DELETE requests."""
     return {
@@ -104,11 +136,30 @@ def test_post_memories_valid_string_content(valid_post_payload):
     response = client.post("/v1/memories", json=valid_post_payload)
     assert response.status_code in (200, 201, 204)
 
+
+def test_post_episodic_memories_valid_string_content(valid_post_payload):
+    """
+    Test episodic memory ingestion.
+    """
+    response = client.post("/v1/memories/episodic", json=valid_post_payload)
+    assert response.status_code in (200, 201, 204)
+
+
+def test_post_profile_memories_valid_string_content(valid_post_payload):
+    """
+    Test profile memory ingestion.
+    """
+    valid_post_payload["episode_type"] = "embedding"
+    response = client.post("/v1/memories/profile", json=valid_post_payload)
+    assert response.status_code in (200, 201, 204)
+
+
 def test_post_memories_valid_list_content(valid_post_payload):
     valid_post_payload["episode_content"] = [0.1, 0.2, 0.3]
     valid_post_payload["episode_type"] = "embedding"
     response = client.post("/v1/memories", json=valid_post_payload)
     assert response.status_code in (200, 201, 204)
+
 
 @pytest.mark.parametrize("missing_field", [
     "session", "producer", "produced_for", "episode_content", "episode_type"
@@ -152,6 +203,52 @@ def test_post_memories_null_metadata(valid_post_payload):
     valid_post_payload["metadata"] = None
     response = client.post("/v1/memories", json=valid_post_payload)
     assert response.status_code in (200, 201, 204)
+
+
+# --- Test memory query /v1/memories/search ---
+def test_memory_search_valid(valid_query_payload):
+    """
+    Test query both episodic and profile memories.
+    """
+    response = client.post(
+        "/v1/memories/search",
+        json=valid_query_payload
+    )
+    assert response.status_code in (200, 201, 204)
+    rsp = response.json()["content"]
+    assert len(rsp) == 2
+    assert "episodic_memory" in rsp.keys()
+    assert "profile_memory" in rsp.keys()
+
+
+# --- Test episodic memory query /v1/memories/episodic/search ---
+def test_episodic_memory_search_valid(valid_query_payload):
+    """
+    Test episodic memory query.
+    """
+    response = client.post(
+        "/v1/memories/episodic/search",
+        json=valid_query_payload
+    )
+    assert response.status_code in (200, 201, 204)
+    rsp = response.json()["content"]
+    assert len(rsp) == 1
+    assert "episodic_memory" in rsp.keys()
+
+
+# --- Test profile memory query /v1/memories/profile/search ---
+def test_profile_memory_search_valid(valid_query_payload):
+    """
+    Test profile memory query.
+    """
+    response = client.post(
+        "/v1/memories/profile/search",
+        json=valid_query_payload
+    )
+    assert response.status_code in (200, 201, 204)
+    rsp = response.json()["content"]
+    assert len(rsp) == 1
+    assert "profile_memory" in rsp.keys()
 
 
 # --- Tests for DELETE /v1/memories ---
