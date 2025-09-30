@@ -705,7 +705,7 @@ class ProfileMemory:
                 "CITATION_CHECK",
                 extra={
                     "content_citations": new_citations,
-                    "profile_citations": memory.metadata.citations,
+                    "profile_citations": consolidate_memory.metadata.citations,
                     "think": thinking,
                 },
             )
