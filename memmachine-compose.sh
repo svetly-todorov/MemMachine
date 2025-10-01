@@ -29,6 +29,16 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
+safe_sed_inplace() {
+    if sed --version >/dev/null 2>&1; then
+        # GNU/Linux sed
+        sed -i "$1" "$2"
+    else
+        # BSD/macOS sed
+        sed -i '' "$1" "$2"
+    fi
+}
+
 # Check if Docker is installed
 check_docker() {
     if ! command -v docker &> /dev/null; then
@@ -90,7 +100,7 @@ check_config_file() {
         # Update .env file with the selected image
         if [ -f ".env" ]; then
             # Remove existing MEMMACHINE_IMAGE from .env if it exists
-            sed -i '/^MEMMACHINE_IMAGE=/d' .env
+            safe_sed_inplace '/^MEMMACHINE_IMAGE=/d' .env
         fi
         echo "MEMMACHINE_IMAGE=${MEMMACHINE_IMAGE}" >> .env
         print_success "Set MEMMACHINE_IMAGE to ${MEMMACHINE_IMAGE} in .env file"
@@ -108,6 +118,26 @@ check_config_file() {
         fi
     else
         print_success "configuration.yml file found"
+    fi
+}
+
+# Prompt user if they would like to set their OpenAI API key; then set it in the .env file and configuration.yml file
+set_openai_api_key() {
+    local api_key=""
+    local reply=""
+    if [ -f ".env" ]; then
+        source .env
+        if [ -z "$OPENAI_API_KEY" ] ||  [ "$OPENAI_API_KEY" = "your_openai_api_key_here" ] || grep -q "<YOUR_API_KEY>" configuration.yml ; then
+            read -p "OPENAI_API_KEY is not set or is using placeholder value. Would you like to set your OpenAI API key? (y/N) " reply
+            if [[ $reply =~ ^[Yy]$ ]]; then
+                read -sp "Enter your OpenAI API key: " api_key
+                echo setting .env
+                safe_sed_inplace "s/OPENAI_API_KEY=.*/OPENAI_API_KEY=$api_key/" .env
+                echo setting configuration.yml
+                safe_sed_inplace "s/api_key: .*$/api_key: $api_key/g" configuration.yml
+                print_success "Set OPENAI_API_KEY in .env and configuration.yml"
+            fi
+        fi
     fi
 }
 
@@ -241,6 +271,7 @@ main() {
     check_docker
     check_env_file
     check_config_file
+    set_openai_api_key
     check_required_env
     check_required_config
     start_services
