@@ -1,10 +1,12 @@
 import pytest
 
 from memmachine.common.reranker.bm25_reranker import BM25Reranker
+from memmachine import setup_nltk
 
 
 @pytest.fixture
 def reranker():
+    setup_nltk()
     return BM25Reranker()
 
 

@@ -5,7 +5,7 @@ def setup_nltk():
     print("Checking for required NLTK data...")
     packages = [
         ('tokenizers/punkt', 'punkt'),
-        ('tokenizers/punkt', 'punkt_tab'),
+        ('tokenizers/punkt_tab', 'punkt_tab'),
         ('corpora/stopwords', 'stopwords')
     ]
     for path, pkg_id in packages:
