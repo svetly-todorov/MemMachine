@@ -380,7 +380,7 @@ Each agent can be tested independently:
 
 ```bash
 # Test memory storage
-curl -X POST "http://localhost:8000/v1/memories" \
+curl -X POST "http://localhost:8080/v1/memories" \
   -H "Content-Type: application/json" \
   -d '{
     "session": {
@@ -396,7 +396,7 @@ curl -X POST "http://localhost:8000/v1/memories" \
     "metadata": {"test": true}
   }'
 # Test query processing
-curl -X POST "http://localhost:8000/v1/memories/search" \
+curl -X POST "http://localhost:8080/v1/memories/search" \
   -H "Content-Type: application/json" \
   -d '{
     "session": {
@@ -414,7 +414,7 @@ curl -X POST "http://localhost:8000/v1/memories/search" \
   }'
 
 # Test agent health
-curl -X GET "http://localhost:8000/health"
+curl -X GET "http://localhost:8080/health"
 ```
 
 ## Troubleshooting
