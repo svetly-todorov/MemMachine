@@ -51,7 +51,6 @@ async def main():
                 group_id=group_id,
                 session_id=group_id,
                 user_id=[speaker_a, speaker_b],
-                config_path="locomo_config.yaml",
             ),
         )
 
