@@ -26,7 +26,7 @@ Follow these steps to set up your local development environment:
 
     ```bash
     git clone https://github.com/MemMachine/MemMachine.git
-    cd MemMachine 
+    cd MemMachine
     ```
 
 2. **Create a Virtual Environment:** We recommend using a virtual environment to
@@ -48,12 +48,6 @@ Follow these steps to set up your local development environment:
     ```bash
     uv pip install -e ".[test]" # Installs the PyTest dependencies
     uv pip install -e ".[gpu,test]" # Installs the GPU and PyTest dependencies
-    ```
-
-    Using `Poetry`:
-
-    ```bash
-    poetry install --all-extras
     ```
 
 ## 3. Code Style and Quality
