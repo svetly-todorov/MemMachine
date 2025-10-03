@@ -5,7 +5,7 @@ import logging
 from datetime import datetime
 from fastapi import FastAPI
 from dotenv import load_dotenv
-from .query_constructor import CRMQueryConstructor
+from query_constructor import CRMQueryConstructor
 
 load_dotenv()
 
