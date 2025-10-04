@@ -7,9 +7,10 @@ information extraction and a vector database for semantic search capabilities.
 """
 
 import asyncio
+import datetime
 import json
 import logging
-from itertools import accumulate, tee
+from itertools import accumulate, groupby, tee
 from types import ModuleType
 from typing import Any
 
@@ -20,10 +21,106 @@ from memmachine.common.embedder.embedder import Embedder
 from memmachine.common.language_model.language_model import LanguageModel
 
 from .storage.asyncpg_profile import AsyncPgProfileStorage
+from .storage.storage_base import ProfileStorageBase
 from .util.lru_cache import LRUCache
 
 logger = logging.getLogger(__name__)
-# logger.addHandler(MultiLineStreamHandler())
+
+
+class ProfileUpdateTracker:
+    """Tracks profile update activity for a user.
+    When a user sends messages, this class keeps track of how many
+    messages have been sent and when the first message was sent.
+    This is used to determine when to trigger profile updates based
+    on message count and time intervals.
+    """
+
+    def __init__(self, user: str, message_limit: int, time_limit_sec: float):
+        self._user = user
+        self._message_limit: int = message_limit
+        self._time_limit: float = time_limit_sec
+        self._message_count: int = 0
+        self._first_updated: datetime.datetime | None = None
+
+    def mark_update(self):
+        """Marks that a new message has been sent by the user.
+        Increments the message count and sets the first updated time
+        if this is the first message.
+        """
+        self._message_count += 1
+        if self._first_updated is None:
+            self._first_updated = datetime.datetime.now()
+
+    def _seconds_from_first_update(self) -> float | None:
+        """Returns the number of seconds since the first message was sent.
+        If no messages have been sent, returns None.
+        """
+        if self._first_updated is None:
+            return None
+        delta = datetime.datetime.now() - self._first_updated
+        return delta.total_seconds()
+
+    def reset(self):
+        """Resets the tracker state.
+        Clears the message count and first updated time.
+        """
+        self._message_count = 0
+        self._first_updated = None
+
+    def should_update(self) -> bool:
+        """Determines if a profile update should be triggered.
+        A profile update is triggered if either the message count
+        exceeds the limit or the time since the first message exceeds
+        the time limit.
+
+        Returns:
+            bool: True if a profile update should be triggered, False otherwise.
+        """
+        if self._message_count == 0:
+            return False
+        elapsed = self._seconds_from_first_update()
+        exceed_time_limit = elapsed is not None and elapsed >= self._time_limit
+        exceed_msg_limit = self._message_count >= self._message_limit
+        return exceed_time_limit or exceed_msg_limit
+
+
+class ProfileUpdateTrackerManager:
+    """Manages ProfileUpdateTracker instances for multiple users."""
+
+    def __init__(self, message_limit: int, time_limit_sec: float):
+        self._trackers: dict[str, ProfileUpdateTracker] = {}
+        self._trackers_lock = asyncio.Lock()
+        self._message_limit = message_limit
+        self._time_limit_sec = time_limit_sec
+
+    def _new_tracker(self, user: str) -> ProfileUpdateTracker:
+        return ProfileUpdateTracker(
+            user=user,
+            message_limit=self._message_limit,
+            time_limit_sec=self._time_limit_sec,
+        )
+
+    async def mark_update(self, user: str):
+        """Marks that a new message has been sent by the user.
+        Creates a new tracker if one does not exist for the user.
+        """
+        async with self._trackers_lock:
+            if user not in self._trackers:
+                self._trackers[user] = self._new_tracker(user)
+            self._trackers[user].mark_update()
+
+    async def get_users_to_update(self) -> list[str]:
+        """Returns a list of users whose profiles need to be updated.
+        A profile update is needed if the user's tracker indicates
+        that an update should be triggered.
+        """
+        async with self._trackers_lock:
+            ret = []
+            for user, tracker in self._trackers.items():
+                if tracker.should_update():
+                    ret.append(user)
+                    tracker.reset()
+            return ret
 
 
 class ProfileMemory:
@@ -56,13 +153,32 @@ class ProfileMemory:
             Defaults to 1000.
     """
 
+    PROFILE_UPDATE_INTERVAL_SEC = 2
+    """ Interval in seconds for profile updates. This controls how often the
+    background task checks for dirty users and processes their
+    conversation history to update profiles.
+    """
+
+    PROFILE_UPDATE_MESSAGE_LIMIT = 5
+    """ Number of messages after which a profile update is triggered.
+    If a user sends this many messages, their profile will be updated.
+    """
+
+    PROFILE_UPDATE_TIME_LIMIT_SEC = 120.0
+    """ Time in seconds after which a profile update is triggered.
+    If a user has sent messages and this much time has passed since
+    the first message, their profile will be updated.
+    """
+
     def __init__(
         self,
+        *,
         model: LanguageModel,
         embeddings: Embedder,
-        db_config: dict[str, Any],
         prompt_module: ModuleType,
+        db_config: dict[str, Any] | None = None,
         max_cache_size=1000,
+        profile_storage: ProfileStorageBase | None = None,
     ):
         # pylint: disable=too-many-arguments
         # pylint: disable=too-many-positional-arguments
@@ -73,9 +189,21 @@ class ProfileMemory:
         self._max_cache_size = max_cache_size
         self._update_prompt = getattr(prompt_module, "UPDATE_PROMPT", "")
         self._consolidation_prompt = getattr(prompt_module, "CONSOLIDATION_PROMPT", "")
-        self._profile_storage = AsyncPgProfileStorage(db_config)
+        if profile_storage is None:
+            if db_config is None:
+                raise ValueError(
+                    "db_config must be provided if profile_storage is None"
+                )
+            self._profile_storage = AsyncPgProfileStorage.build_config(db_config)
+        else:
+            self._profile_storage = profile_storage
         self._update_interval = 1
-        self._msg_count: dict[str, int] = {}
+        self._dirty_users: ProfileUpdateTrackerManager = ProfileUpdateTrackerManager(
+            message_limit=self.PROFILE_UPDATE_MESSAGE_LIMIT,
+            time_limit_sec=self.PROFILE_UPDATE_TIME_LIMIT_SEC,
+        )
+        self._ingestion_task = asyncio.create_task(self._background_ingestion_task())
+        self._is_shutting_down = False
         self._profile_cache = LRUCache(self._max_cache_size)
 
     async def startup(self):
@@ -84,6 +212,8 @@ class ProfileMemory:
 
     async def cleanup(self):
         """Releases resources, such as the database connection pool."""
+        self._is_shutting_down = True
+        await self._ingestion_task
         await self._profile_storage.cleanup()
 
     # === CRUD ===
@@ -321,6 +451,8 @@ class ProfileMemory:
             metadata: Metadata associated with the message, such as the
                      speaker.
             isolations: A dictionary for data isolation.
+            wait_consolidate: If true, wait for consolidation to finish
+                     before returning.
 
         Returns:
             A boolean indicating whether the consolidation process was awaited.
@@ -332,40 +464,73 @@ class ProfileMemory:
             metadata = {}
         if isolations is None:
             isolations = {}
+
         if "speaker" in metadata:
             content = f"{metadata['speaker']} sends '{content}'"
-        message = await self._profile_storage.add_history(
-            user_id, content, metadata, isolations
-        )
-        self._msg_count[user_id] = self._msg_count.get(user_id, 0) + 1
-        wait_consolidate = False
-        if self._msg_count[user_id] >= self._update_interval:
-            self._msg_count[user_id] = 0
-            wait_consolidate = True
-        fut = asyncio.create_task(
-            self._update_user_profile_think(message, wait_consolidate=wait_consolidate)
-        )
-        if wait_consolidate:
-            await fut
-        return wait_consolidate
 
-    async def _reconsolidate_memory(
+        await self._profile_storage.add_history(user_id, content, metadata, isolations)
+
+        await self._dirty_users.mark_update(user_id)
+
+    async def uningested_message_count(self):
+        return await self._profile_storage.get_uningested_history_messages_count()
+
+    async def _background_ingestion_task(self):
+        while not self._is_shutting_down:
+            dirty_users = await self._dirty_users.get_users_to_update()
+
+            if len(dirty_users) == 0:
+                await asyncio.sleep(self.PROFILE_UPDATE_INTERVAL_SEC)
+                continue
+
+            await asyncio.gather(
+                *[self._process_uningested_memories(user_id) for user_id in dirty_users]
+            )
+
+    async def _get_isolation_grouped_memories(self, user_id: str):
+        rows = await self._profile_storage.get_history_messages_by_ingestion_status(
+            user_id=user_id,
+            k=100,
+            is_ingested=False,
+        )
+
+        def key_fn(r):
+            # normalize JSONB dict to a stable string key
+            return json.dumps(r["isolations"], sort_keys=True)
+
+        rows = sorted(rows, key=key_fn)
+        return [list(group) for _, group in groupby(rows, key_fn)]
+
+    async def _process_uningested_memories(
         self,
         user_id: str,
-        isolations: dict[str, bool | int | float | str] | None = None,
     ):
-        """request re-ingestion of session data to profile"""
-        if isolations is None:
-            isolations = {}
+        message_isolation_groups = await self._get_isolation_grouped_memories(user_id)
 
-        messages = await self._profile_storage.get_last_history_messages(
-            user_id=user_id, k=1_000_000, isolations=isolations
-        )
-        for i in range(0, len(messages), 10):
-            chunk = messages[i : i + 10]
-            await asyncio.gather(
-                *[self._update_user_profile_think(msg) for msg in chunk]
+        async def process_messages(messages):
+            if len(messages) == 0:
+                return
+
+            mark_tasks = []
+
+            for i in range(0, len(messages) - 1):
+                message = messages[i]
+                await self._update_user_profile_think(message)
+                mark_tasks.append(
+                    self._profile_storage.mark_messages_ingested([message["id"]])
+                )
+
+            await self._update_user_profile_think(messages[-1], wait_consolidate=True)
+            mark_tasks.append(
+                self._profile_storage.mark_messages_ingested([messages[-1]["id"]])
             )
+            await asyncio.gather(*mark_tasks)
+
+        tasks = []
+        for isolation_messages in message_isolation_groups:
+            tasks.append(process_messages(isolation_messages))
+
+        await asyncio.gather(*tasks)
 
     async def _update_user_profile_think(
         self,
