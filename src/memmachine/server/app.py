@@ -23,7 +23,8 @@ import yaml
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from fastmcp import Context, FastMCP
-from prometheus_client import make_asgi_app
+from prometheus_client import generate_latest, CONTENT_TYPE_LATEST
+from fastapi.responses import Response
 from pydantic import BaseModel
 
 from memmachine.common.embedder.openai_embedder import OpenAIEmbedder
@@ -229,8 +230,6 @@ async def mcp_http_lifespan(application: FastAPI):
 
 app = FastAPI(lifespan=mcp_http_lifespan)
 app.mount("/mcp", mcp_app)
-app.mount("/metrics", make_asgi_app())
-
 
 @mcp.tool()
 async def mcp_add_session_memory(episode: NewEpisode) -> dict[str, Any]:
@@ -756,6 +755,9 @@ async def delete_session_data(delete_req: DeleteDataRequest):
     async with AsyncEpisodicMemory(inst) as inst:
         await inst.delete_data()
 
+@app.get("/metrics")
+async def metrics():
+    return Response(generate_latest(), media_type=CONTENT_TYPE_LATEST)
 
 @app.get("/v1/sessions")
 async def get_all_sessions() -> AllSessionsResponse:
