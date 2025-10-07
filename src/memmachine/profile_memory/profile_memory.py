@@ -16,6 +16,7 @@ from typing import Any
 import numpy as np
 from pydantic import BaseModel
 
+from memmachine.common.data_types import ExternalServiceAPIError
 from memmachine.common.embedder.embedder import Embedder
 from memmachine.common.language_model.language_model import LanguageModel
 
@@ -404,7 +405,7 @@ class ProfileMemory:
             response_text, _ = await self._model.generate_response(
                 system_prompt=self._update_prompt, user_prompt=user_prompt
             )
-        except (IOError, ValueError) as e:
+        except (ExternalServiceAPIError, ValueError, RuntimeError) as e:
             logger.error("Eror when update profile: %s", str(e))
             return
 
@@ -548,7 +549,7 @@ class ProfileMemory:
                 system_prompt=self._consolidation_prompt,
                 user_prompt=json.dumps(memories),
             )
-        except (IOError, ValueError) as e:
+        except (ExternalServiceAPIError, ValueError, RuntimeError) as e:
             logger.error("Model Error when deduplicate profile: %s", str(e))
             return
 
