@@ -1,17 +1,45 @@
 import json
 import logging
-from typing import Any
+from collections.abc import Mapping
+from typing import Any, Iterator
 
 import asyncpg
 import numpy as np
 from pgvector.asyncpg import register_vector
 
-# TODO: AsyncPgProfileStorage should inherit from ProfileStorageBase
+from memmachine.profile_memory.storage.storage_base import ProfileStorageBase
 
 logger = logging.getLogger(__name__)
 
 
-class AsyncPgProfileStorage:
+class RecordMapping(Mapping):
+    def __init__(self, inner: asyncpg.Record):
+        # inner is the external Record instance
+        self._inner = inner
+
+    def __getitem__(self, key: str) -> Any:
+        return self.get(key)
+
+    def __iter__(self) -> Iterator[str]:
+        return iter(self._inner.keys())
+
+    def __len__(self) -> int:
+        return len(self._inner)
+
+    def get(self, key, default=None):
+        return self._inner.get(key, default)
+
+    def items(self):
+        return self._inner.items()
+
+    def keys(self):
+        return self._inner.keys()
+
+    def values(self):
+        return self._inner.values()
+
+
+class AsyncPgProfileStorage(ProfileStorageBase):
     """
     asyncpg implementation for ProfileStorageBase
     """
@@ -19,6 +47,10 @@ class AsyncPgProfileStorage:
     main_table = "prof"
     junction_table = "citations"
     history_table = "history"
+
+    @staticmethod
+    def build_config(config: dict[str, Any]) -> ProfileStorageBase:
+        return AsyncPgProfileStorage(config)
 
     def __init__(self, config: dict[str, Any]):
         self._pool = None
@@ -64,7 +96,7 @@ class AsyncPgProfileStorage:
     async def get_profile(
         self,
         user_id: str,
-        isolations: dict[str, bool | int | float | str] = {},
+        isolations: dict[str, bool | int | float | str] | None = None,
     ) -> dict[str, dict[str, Any | list[Any]]]:
         result: dict[str, dict[str, list[Any]]] = {}
         assert self._pool is not None
@@ -100,7 +132,7 @@ class AsyncPgProfileStorage:
         feature: str,
         value: str,
         tag: str,
-        isolations: dict[str, bool | int | float | str] = {},
+        isolations: dict[str, bool | int | float | str] | None = None,
     ) -> list[int]:
         assert self._pool is not None
         async with self._pool.acquire() as conn:
@@ -124,7 +156,7 @@ class AsyncPgProfileStorage:
     async def delete_profile(
         self,
         user_id: str,
-        isolations: dict[str, bool | int | float | str] = {},
+        isolations: dict[str, bool | int | float | str] | None = None,
     ):
         assert self._pool is not None
         async with self._pool.acquire() as conn:
@@ -144,10 +176,17 @@ class AsyncPgProfileStorage:
         value: str,
         tag: str,
         embedding: np.ndarray,
-        metadata: dict[str, Any] = {},
-        isolations: dict[str, bool | int | float | str] = {},
-        citations: list[int] = [],
+        metadata: dict[str, Any] | None = None,
+        isolations: dict[str, bool | int | float | str] | None = None,
+        citations: list[int] | None = None,
     ):
+        if metadata is None:
+            metadata = {}
+        if isolations is None:
+            isolations = {}
+        if citations is None:
+            citations = []
+
         value = str(value)
         assert self._pool is not None
         async with self._pool.acquire() as conn:
@@ -187,8 +226,11 @@ class AsyncPgProfileStorage:
         feature: str,
         tag: str,
         value: str | None = None,
-        isolations: dict[str, bool | int | float | str] = {},
+        isolations: dict[str, bool | int | float | str] | None = None,
     ):
+        if isolations is None:
+            isolations = {}
+
         assert self._pool is not None
         async with self._pool.acquire() as conn:
             if value is None:
@@ -248,11 +290,14 @@ class AsyncPgProfileStorage:
         self,
         user_id: str,
         thresh: int = 20,
-        isolations: dict[str, bool | int | float | str] = {},
+        isolations: dict[str, bool | int | float | str] | None = None,
     ) -> list[list[dict[str, Any]]]:
         """
         Retrieve every section of the user's profile which has more then 20 entries, formatted as json.
         """
+        if isolations is None:
+            isolations = {}
+
         assert self._pool is not None
         async with self._pool.acquire() as conn:
             agg = await conn.fetch(
@@ -303,9 +348,12 @@ class AsyncPgProfileStorage:
         qemb: np.ndarray,
         k: int,
         min_cos: float,
-        isolations: dict[str, bool | int | float | str] = {},
+        isolations: dict[str, bool | int | float | str] | None = None,
         include_citations: bool = False,
     ) -> list[dict[str, Any]]:
+        if isolations is None:
+            isolations = {}
+
         assert self._pool is not None
         async with self._pool.acquire() as conn:
             agg = await conn.fetch(
@@ -357,9 +405,14 @@ class AsyncPgProfileStorage:
         self,
         user_id: str,
         content: str,
-        metadata: dict[str, str] = {},
-        isolations: dict[str, bool | int | float | str] = {},
-    ) -> asyncpg.Record:
+        metadata: dict[str, str] | None = None,
+        isolations: dict[str, bool | int | float | str] | None = None,
+    ) -> Mapping[str, Any]:
+        if isolations is None:
+            isolations = {}
+        if metadata is None:
+            metadata = {}
+
         stm = f"""
             INSERT INTO {AsyncPgProfileStorage.history_table} (user_id, content, metadata, isolations)
             VALUES($1, $2, $3, $4)
@@ -367,20 +420,21 @@ class AsyncPgProfileStorage:
         """
         assert self._pool is not None
         async with self._pool.acquire() as conn:
-            return await conn.fetchrow(
+            row = await conn.fetchrow(
                 stm,
                 user_id,
                 content,
                 json.dumps(metadata),
                 json.dumps(isolations),
             )
+        return RecordMapping(row)
 
     async def delete_history(
         self,
         user_id: str,
         start_time: int = 0,
         end_time: int = 0,
-        isolations: dict[str, bool | int | float | str] = {},
+        isolations: dict[str, bool | int | float | str] | None = None,
     ):
         stm = f"""
             DELETE FROM {AsyncPgProfileStorage.history_table}
@@ -391,30 +445,56 @@ class AsyncPgProfileStorage:
         async with self._pool.acquire() as conn:
             await conn.execute(stm, user_id, json.dumps(isolations))
 
-    async def get_last_history_messages(
+    async def get_history_messages_by_ingestion_status(
         self,
         user_id: str,
-        k: int = 0,
-        isolations: dict[str, bool | int | float | str] = {},
-    ) -> list[asyncpg.Record]:
+        k: int = 10,
+        is_ingested: bool = False,
+    ) -> list[Mapping[str, Any]]:
         stm = f"""
             SELECT id, user_id, content, metadata, isolations FROM {AsyncPgProfileStorage.history_table}
-            WHERE user_id=$1 AND isolations @> 2
-            ORDER BY timestamp DESC
-            LIMIT {k}
+            WHERE user_id = $1 AND ingested = $2
+            ORDER BY create_at DESC
+            LIMIT $3
         """
         assert self._pool is not None
         async with self._pool.acquire() as conn:
-            rows = await conn.fetch(stm, user_id, json.dumps(isolations))
+            rows = await conn.fetch(stm, user_id, is_ingested, k)
+            return [RecordMapping(row) for row in rows]
+
+    async def get_uningested_history_messages_count(self) -> int:
+        stm = f"""
+            SELECT COUNT(*) FROM {AsyncPgProfileStorage.history_table}
+            WHERE ingested=FALSE
+        """
+        assert self._pool is not None
+        async with self._pool.acquire() as conn:
+            rows = await conn.fetchval(stm)
             return rows
+
+    async def mark_messages_ingested(self, ids: list[int]) -> None:
+        if not ids:
+            return  # nothing to do
+
+        stm = f"""
+                UPDATE {AsyncPgProfileStorage.history_table}
+                SET ingested = TRUE
+                WHERE id = ANY($1::bigint[])
+            """
+        assert self._pool is not None
+        async with self._pool.acquire() as conn:
+            await conn.execute(stm, ids)
 
     async def get_history_message(
         self,
         user_id: str,
         start_time: int = 0,
         end_time: int = 0,
-        isolations: dict[str, bool | int | float | str] = {},
+        isolations: dict[str, bool | int | float | str] | None = None,
     ) -> list[str]:
+        if isolations is None:
+            isolations = {}
+
         stm = f"""
             SELECT content FROM {AsyncPgProfileStorage.history_table}
             WHERE timestamp >= $1 AND timestamp <= $2 AND user_id=$3
@@ -433,8 +513,11 @@ class AsyncPgProfileStorage:
         self,
         user_id: str,
         start_time: int = 0,
-        isolations: dict[str, bool | int | float | str] = {},
+        isolations: dict[str, bool | int | float | str] | None = None,
     ):
+        if isolations is None:
+            isolations = {}
+
         query = f"""
             DELETE FROM {AsyncPgProfileStorage.history_table}
             WHERE user_id = $1 AND isolations @> $2 AND start_time > $3
