@@ -190,8 +190,8 @@ start_services() {
         COMPOSE_CMD="docker compose"
     fi
     
-    # Pull and start services (no build needed since we use pre-built image)
-    $COMPOSE_CMD up -d
+    # Pull and start services (override the image if specified in memmachine-compose.sh start <image>:<tag>)
+    MEMMACHINE_IMAGE="${ENV_MEMMACHINE_IMAGE:-}" $COMPOSE_CMD up -d
     
     print_success "Services started successfully!"
 }
@@ -262,6 +262,49 @@ show_service_info() {
     echo ""
 }
 
+build_image() {
+    local name=""
+    local force="false"
+    local gpu="false"
+    local reply=""
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --gpu)
+                gpu="$2"
+                shift 2
+                ;;
+            -f|--force)
+                force="true"
+                shift
+                ;;
+            *)
+                name="$1"
+                shift
+                ;;
+        esac
+    done
+
+    if [[ -z "$name" ]]; then
+        print_info "No name specified."
+        print_info "Using default name: memmachine/memmachine:latest"
+        name="memmachine/memmachine:latest"
+    fi
+
+    if [[ "$force" == "false" ]]; then
+        read -p "Building $name with --build-arg GPU=$gpu (y/N): " -r reply
+    else
+        print_info "Building $name with --build-arg GPU=$gpu"
+    fi
+
+    if [[ $reply =~ ^[Yy]$ || $force == "true" ]]; then
+        docker build --build-arg GPU=$gpu -t "$name" .
+    else
+        print_info "Build cancelled"
+        exit 0
+    fi
+}
+
 # Main execution
 main() {
     echo "MemMachine Docker Startup Script"
@@ -323,21 +366,31 @@ case "${1:-}" in
             print_info "Cleanup cancelled"
         fi
         ;;
+    "build")
+        shift
+        build_image "$@"
+        ;;
     "help"|"-h"|"--help")
         echo "MemMachine Docker Startup Script"
         echo ""
         echo "Usage: $0 [command]"
         echo ""
         echo "Commands:"
-        echo "  (no args)  Start MemMachine services"
-        echo "  stop       Stop MemMachine services"
-        echo "  restart    Restart MemMachine services"
-        echo "  logs       Show service logs"
-        echo "  clean      Remove all services and data"
-        echo "  help       Show this help message"
+        echo "  (no args) | start [<image>:<tag>]                      Start MemMachine services"
+        echo "  stop                                                   Stop MemMachine services"
+        echo "  restart                                                Restart MemMachine services"
+        echo "  logs                                                   Show service logs"
+        echo "  clean                                                  Remove all services and data"
+        echo "  build [<image>:<tag>] [--gpu true/false] [-f|--force]  Build a custom MemMachine image"
+        echo "  help                                                   Show this help message"
         echo ""
         ;;
     "")
+        main
+        ;;
+    "start")
+        shift
+        ENV_MEMMACHINE_IMAGE="${1:-}"
         main
         ;;
     *)
