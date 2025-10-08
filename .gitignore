@@ -1,3 +1,6 @@
+# MemMachine specific
+configuration.yml
+
 # Byte-compiled / optimized / DLL files
 __pycache__/
 *.py[codz]
