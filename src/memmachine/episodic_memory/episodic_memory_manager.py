@@ -101,8 +101,13 @@ class EpisodicMemoryManager:
         if cls._instance is not None:
             return cls._instance
 
-        with open(config_path, "r", encoding="utf-8") as f:
-            config = yaml.safe_load(f)
+        try:
+            with open(config_path, "r", encoding="utf-8") as f:
+                config = yaml.safe_load(f)
+        except FileNotFoundError as e:
+            raise ValueError(f"Configuration file '{config_path}' not found") from e
+        except OSError as e:
+            raise OSError(f"Failed to read configuration file '{config_path}'") from e
 
         def config_to_lowercase(data: Any) -> Any:
             """Recursively converts all dictionary keys in a nested structure
