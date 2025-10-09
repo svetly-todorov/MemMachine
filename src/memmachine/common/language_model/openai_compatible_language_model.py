@@ -1,5 +1,5 @@
 """
-OpenAI-based language model implementation.
+OpenAI-completions API based language model implementation.
 """
 
 import asyncio
@@ -7,6 +7,7 @@ import json
 import logging
 import time
 from typing import Any
+from urllib.parse import urlparse
 from uuid import uuid4
 
 import openai
@@ -19,15 +20,15 @@ from .language_model import LanguageModel
 logger = logging.getLogger(__name__)
 
 
-class OpenAILanguageModel(LanguageModel):
+class OpenAICompatibleLanguageModel(LanguageModel):
     """
-    Language model that uses OpenAI's models
+    Language model that uses OpenAI's completions API
     to generate responses based on prompts and tools.
     """
 
     def __init__(self, config: dict[str, Any]):
         """
-        Initialize an OpenAILanguageModel
+        Initialize an OpenAICompatibleLanguageModel
         with the provided configuration.
 
         Args:
@@ -35,14 +36,15 @@ class OpenAILanguageModel(LanguageModel):
                 Configuration dictionary containing:
                 - api_key (str):
                   API key for accessing the OpenAI service.
-                - model (str, optional):
+                - model (str):
                   Name of the OpenAI model to use
                 - metrics_factory (MetricsFactory, optional):
                   An instance of MetricsFactory
                   for collecting usage metrics.
                 - user_metrics_labels (dict[str, str], optional):
                   Labels to attach to the collected metrics.
-                - max_retry_interval_seconds(int, optional):
+                - base_url: The base URL of the model
+                - max_retry_interval_seconds (int, optional):
                   Maximal retry interval in seconds when retrying API calls.
                   The default value is 120 seconds.
 
@@ -57,6 +59,7 @@ class OpenAILanguageModel(LanguageModel):
         self._model = config.get("model")
         if self._model is None:
             raise ValueError("The model name must be configured")
+
         if not isinstance(self._model, str):
             raise TypeError("The model name must be a string")
 
@@ -64,12 +67,20 @@ class OpenAILanguageModel(LanguageModel):
         if api_key is None:
             raise ValueError("Language API key must be provided")
 
-        self._client = openai.AsyncOpenAI(api_key=api_key)
+        base_url = config.get("base_url")
+        if base_url is not None:
+            try:
+                parsed_url = urlparse(base_url)
+                if not parsed_url.scheme or not parsed_url.netloc:
+                    raise ValueError(f"Invalid base URL: {base_url}")
+            except ValueError as e:
+                raise ValueError(f"Invalid base URL: {base_url}") from e
+
+        self._client = openai.AsyncOpenAI(api_key=api_key, base_url=base_url)
 
         self._max_retry_interval_seconds = config.get("max_retry_interval_seconds", 120)
         if not isinstance(self._max_retry_interval_seconds, int):
             raise TypeError("max_retry_interval_seconds must be an integer")
-
         if self._max_retry_interval_seconds <= 0:
             raise ValueError("max_retry_interval_seconds must be a positive integer")
 
@@ -92,22 +103,9 @@ class OpenAILanguageModel(LanguageModel):
                 "Number of input tokens used for OpenAI language model",
                 label_names=label_names,
             )
-            self._input_cached_tokens_usage_counter = metrics_factory.get_counter(
-                "language_model_openai_usage_input_cached_tokens",
-                (
-                    "Number of tokens retrieved from cache "
-                    "used for OpenAI language model"
-                ),
-                label_names=label_names,
-            )
             self._output_tokens_usage_counter = metrics_factory.get_counter(
                 "language_model_openai_usage_output_tokens",
                 "Number of output tokens used for OpenAI language model",
-                label_names=label_names,
-            )
-            self._output_reasoning_tokens_usage_counter = metrics_factory.get_counter(
-                "language_model_openai_usage_output_reasoning_tokens",
-                ("Number of reasoning tokens used for OpenAI language model"),
                 label_names=label_names,
             )
             self._total_tokens_usage_counter = metrics_factory.get_counter(
@@ -136,26 +134,15 @@ class OpenAILanguageModel(LanguageModel):
             {"role": "system", "content": system_prompt or ""},
             {"role": "user", "content": user_prompt or ""},
         ]
-
         generate_response_call_uuid = uuid4()
 
         start_time = time.monotonic()
-
         sleep_seconds = 1
         for attempt in range(1, max_attempts + 1):
             try:
-                logger.debug(
-                    "[call uuid: %s] "
-                    "Attempting to generate response using %s OpenAI language model: "
-                    "on attempt %d with max attempts %d",
-                    generate_response_call_uuid,
-                    self._model,
-                    attempt,
-                    max_attempts,
-                )
-                response = await self._client.responses.create(
+                response = await self._client.chat.completions.create(
                     model=self._model,
-                    input=input_prompts,
+                    messages=input_prompts,
                     tools=tools,
                     tool_choice=tool_choice,
                 )  # type: ignore
@@ -201,27 +188,14 @@ class OpenAILanguageModel(LanguageModel):
                 raise ExternalServiceAPIError(error_message)
 
         end_time = time.monotonic()
-        logger.debug(
-            "[call uuid: %s] Response generated in %.3f seconds",
-            generate_response_call_uuid,
-            end_time - start_time,
-        )
 
         if self._collect_metrics and response.usage is not None:
             self._input_tokens_usage_counter.increment(
-                value=response.usage.input_tokens,
-                labels=self._user_metrics_labels,
-            )
-            self._input_cached_tokens_usage_counter.increment(
-                value=response.usage.input_tokens_details.cached_tokens,
+                value=response.usage.prompt_tokens,
                 labels=self._user_metrics_labels,
             )
             self._output_tokens_usage_counter.increment(
-                value=response.usage.output_tokens,
-                labels=self._user_metrics_labels,
-            )
-            self._output_reasoning_tokens_usage_counter.increment(
-                value=response.usage.output_tokens_details.reasoning_tokens,
+                value=response.usage.completion_tokens,
                 labels=self._user_metrics_labels,
             )
             self._total_tokens_usage_counter.increment(
@@ -232,25 +206,24 @@ class OpenAILanguageModel(LanguageModel):
                 value=end_time - start_time,
                 labels=self._user_metrics_labels,
             )
-        if response.output is None:
-            return (response.output_text or "", [])
 
+        function_calls_arguments = []
         try:
-            function_calls_arguments = [
-                {
-                    "call_id": output.call_id,
-                    "function": {
-                        "name": output.name,
-                        "arguments": json.loads(output.arguments),
-                    },
-                }
-                for output in response.output
-                if output.type == "function_call"
-            ]
+            if response.choices[0].message.tool_calls:
+                for tool_call in response.choices[0].message.tool_calls:
+                    function_calls_arguments.append(
+                        {
+                            "call_id": tool_call.id,
+                            "function": {
+                                "name": tool_call.function.name,
+                                "arguments": json.loads(tool_call.function.arguments),
+                            },
+                        }
+                    )
         except json.JSONDecodeError as e:
             raise ValueError("JSON decode error") from e
 
         return (
-            response.output_text,
+            response.choices[0].message.content,
             function_calls_arguments,
         )

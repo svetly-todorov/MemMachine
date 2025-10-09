@@ -36,11 +36,17 @@ class OpenAIEmbedder(Embedder):
                 - model (str, optional):
                   Name of the OpenAI embedding model to use
                   (default: "text-embedding-3-small").
+                - base_url (str, optional):
+                  Base URL of the OpenAI embedding model to use
                 - metrics_factory (MetricsFactory, optional):
                   An instance of MetricsFactory
                   for collecting usage metrics.
                 - user_metrics_labels (dict[str, str], optional):
                   Labels to attach to the collected metrics.
+                -base_url(str, optional):
+                  Base URL of the OpenAI compatible embedding model to use
+                -max_retry_interval_seconds(int, optional):
+                  Maximal retry interval in seconds.
 
         Raises:
             ValueError:
@@ -56,13 +62,21 @@ class OpenAIEmbedder(Embedder):
         if api_key is None:
             raise ValueError("Embedder API key must be provided")
 
-        self._client = openai.AsyncOpenAI(api_key=api_key)
+        self._client = openai.AsyncOpenAI(
+            api_key=api_key, base_url=config.get("base_url")
+        )
 
         metrics_factory = config.get("metrics_factory")
         if metrics_factory is not None and not isinstance(
             metrics_factory, MetricsFactory
         ):
             raise TypeError("Metrics factory must be an instance of MetricsFactory")
+
+        self._max_retry_interval_seconds = config.get("max_retry_interval_seconds", 120)
+        if not isinstance(self._max_retry_interval_seconds, int):
+            raise TypeError("max_retry_interval_seconds must be an integer")
+        if self._max_retry_interval_seconds <= 0:
+            raise ValueError("max_retry_interval_seconds must be a positive integer")
 
         self._collect_metrics = False
         if metrics_factory is not None:
