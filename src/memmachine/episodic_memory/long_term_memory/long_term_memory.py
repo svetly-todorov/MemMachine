@@ -72,6 +72,10 @@ class LongTermMemory:
         if not isinstance(neo4j_password, str):
             raise TypeError("Neo4j password must be provided as a string")
 
+        neo4j_force_exact_similarity_search = vector_graph_store_config.get(
+            "force_exact_similarity_search", False
+        )
+
         # Configure derivative deriver
         derivative_deriver_name = long_term_memory_config.get(
             "derivative_deriver", "sentence"
@@ -189,6 +193,7 @@ class LongTermMemory:
                     "uri": neo4j_uri,
                     "username": neo4j_username,
                     "password": neo4j_password,
+                    "force_exact_similarity_search": neo4j_force_exact_similarity_search,
                 },
             },
             "_metrics_factory": {
@@ -236,7 +241,7 @@ class LongTermMemory:
         declarative_memory_episodes = await self._declarative_memory.search(
             query,
             num_episodes_limit=num_episodes_limit,
-            filterable_properties=id_filter,
+            property_filter=id_filter,
         )
         return [
             Episode(
@@ -274,7 +279,7 @@ class LongTermMemory:
         self._declarative_memory.forget_all()
 
     async def forget_session(self):
-        await self._declarative_memory.forget_isolated_episodes(
+        await self._declarative_memory.forget_filtered_episodes(
             filterable_properties={
                 "group_id": self._memory_context.group_id,
                 "session_id": self._memory_context.session_id,

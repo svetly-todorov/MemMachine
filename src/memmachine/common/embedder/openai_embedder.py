@@ -13,6 +13,7 @@ import openai
 from memmachine.common.data_types import ExternalServiceAPIError
 from memmachine.common.metrics_factory.metrics_factory import MetricsFactory
 
+from .data_types import SimilarityMetric
 from .embedder import Embedder
 
 logger = logging.getLogger(__name__)
@@ -36,16 +37,18 @@ class OpenAIEmbedder(Embedder):
                 - model (str, optional):
                   Name of the OpenAI embedding model to use
                   (default: "text-embedding-3-small").
+                - dimensions (int | None, optional):
+                  Dimensionality of the embedding vectors.
+                  Required if model is not recognized
+                  (default: None).
                 - base_url (str, optional):
-                  Base URL of the OpenAI embedding model to use
+                  Base URL of the OpenAI embedding model to use.
                 - metrics_factory (MetricsFactory, optional):
                   An instance of MetricsFactory
                   for collecting usage metrics.
                 - user_metrics_labels (dict[str, str], optional):
                   Labels to attach to the collected metrics.
-                -base_url(str, optional):
-                  Base URL of the OpenAI compatible embedding model to use
-                -max_retry_interval_seconds(int, optional):
+                - max_retry_interval_seconds(int, optional):
                   Maximal retry interval in seconds.
 
         Raises:
@@ -56,11 +59,58 @@ class OpenAIEmbedder(Embedder):
         """
         super().__init__()
 
-        self._model = config.get("model", "text-embedding-3-small")
-
         api_key = config.get("api_key")
-        if api_key is None:
-            raise ValueError("Embedder API key must be provided")
+        if not isinstance(api_key, str):
+            raise TypeError("Embedder API key must be a string")
+
+        model = config.get("model", "text-embedding-3-small")
+        if not isinstance(model, str):
+            raise TypeError("Model name must be a string")
+
+        self._model = model
+
+        # https://platform.openai.com/docs/guides/embeddings#embedding-models
+        dimensions = config.get("dimensions")
+        if dimensions is None:
+            match self._model:
+                case "text-embedding-3-small":
+                    dimensions = 1536
+                case "text-embedding-3-large":
+                    dimensions = 3072
+                case "text-embedding-ada-002":
+                    dimensions = 1536
+                case _:
+                    raise ValueError(
+                        f"Unknown dimensions for model {model}."
+                        "Please specify dimensions in the configuration."
+                    )
+
+        if not isinstance(dimensions, int):
+            raise TypeError("Dimensions must be an integer")
+
+        if dimensions <= 0:
+            raise ValueError("Dimensions must be positive")
+
+        match self._model:
+            case "text-embedding-3-small":
+                if dimensions > 1536:
+                    raise ValueError(
+                        "Dimensions for text-embedding-3-small "
+                        "cannot be greater than 1536"
+                    )
+            case "text-embedding-3-large":
+                if dimensions > 3072:
+                    raise ValueError(
+                        "Dimensions for text-embedding-3-large "
+                        "cannot be greater than 3072"
+                    )
+            case "text-embedding-ada-002":
+                if dimensions != 1536:
+                    raise ValueError(
+                        "Dimensions for text-embedding-ada-002 must be exactly 1536"
+                    )
+
+        self._dimensions = dimensions
 
         self._client = openai.AsyncOpenAI(
             api_key=api_key, base_url=config.get("base_url")
@@ -142,8 +192,17 @@ class OpenAIEmbedder(Embedder):
                     attempt,
                     max_attempts,
                 )
-                response = await self._client.embeddings.create(
-                    input=inputs, model=self._model
+                response = (
+                    await self._client.embeddings.create(
+                        input=inputs,
+                        model=self._model,
+                        dimensions=self._dimensions,
+                    )
+                    if self._model != "text-embedding-ada-002"
+                    else await self._client.embeddings.create(
+                        input=inputs,
+                        model=self._model,
+                    )
                 )
                 break
             except (
@@ -210,3 +269,16 @@ class OpenAIEmbedder(Embedder):
             )
 
         return [datum.embedding for datum in response.data]
+
+    @property
+    def model_id(self) -> str:
+        return self._model
+
+    @property
+    def dimensions(self) -> int:
+        return self._dimensions
+
+    @property
+    def similarity_metric(self) -> SimilarityMetric:
+        # https://platform.openai.com/docs/guides/embeddings
+        return SimilarityMetric.COSINE
