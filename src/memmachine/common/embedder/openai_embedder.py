@@ -89,7 +89,26 @@ class OpenAIEmbedder(Embedder):
             raise TypeError("Dimensions must be an integer")
 
         if dimensions <= 0:
-            raise ValueError("Dimensions must be a positive integer")
+            raise ValueError("Dimensions must be positive")
+
+        match self._model:
+            case "text-embedding-3-small":
+                if dimensions > 1536:
+                    raise ValueError(
+                        "Dimensions for text-embedding-3-small "
+                        "cannot be greater than 1536"
+                    )
+            case "text-embedding-3-large":
+                if dimensions > 3072:
+                    raise ValueError(
+                        "Dimensions for text-embedding-3-large "
+                        "cannot be greater than 3072"
+                    )
+            case "text-embedding-ada-002":
+                if dimensions != 1536:
+                    raise ValueError(
+                        "Dimensions for text-embedding-ada-002 must be exactly 1536"
+                    )
 
         self._dimensions = dimensions
 
@@ -173,8 +192,17 @@ class OpenAIEmbedder(Embedder):
                     attempt,
                     max_attempts,
                 )
-                response = await self._client.embeddings.create(
-                    input=inputs, model=self._model, dimensions=self.dimensions
+                response = (
+                    await self._client.embeddings.create(
+                        input=inputs,
+                        model=self._model,
+                        dimensions=self._dimensions,
+                    )
+                    if self._model != "text-embedding-ada-002"
+                    else await self._client.embeddings.create(
+                        input=inputs,
+                        model=self._model,
+                    )
                 )
                 break
             except (
