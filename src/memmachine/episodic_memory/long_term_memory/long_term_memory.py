@@ -58,11 +58,14 @@ class LongTermMemory:
         if not isinstance(neo4j_host, str):
             raise TypeError("Neo4j host must be provided as a string")
 
-        neo4j_port = vector_graph_store_config.get("port")
-        if not isinstance(neo4j_port, int):
-            raise TypeError("Neo4j port must be provided as an integer")
+        if "neo4j+s://" in neo4j_host:
+            neo4j_uri = neo4j_host
+        else:
+            neo4j_port = vector_graph_store_config.get("port")
+            if not isinstance(neo4j_port, int):
+                raise TypeError("Neo4j port must be provided as an integer")
 
-        neo4j_uri = f"bolt://{neo4j_host}:{neo4j_port}"
+            neo4j_uri = f"bolt://{neo4j_host}:{neo4j_port}"
 
         neo4j_username = vector_graph_store_config.get("user")
         if not isinstance(neo4j_username, str):
