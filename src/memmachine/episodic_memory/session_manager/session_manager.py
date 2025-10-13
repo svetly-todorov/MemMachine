@@ -127,7 +127,7 @@ class SessionManager:
         sql_path = config.get("uri")
         if sql_path is None or len(sql_path) < 1:
             raise ValueError(f"""Invalid sql path: {str(config)}""")
-        if sql_path.find(":///") < 0:
+        if "postgresql" not in sql_path and sql_path.find(":///") < 0:
             sql_path = "sqlite:///" + sql_path
 
         # create empty sqlite file if it does not exist
@@ -139,6 +139,12 @@ class SessionManager:
 
         self._engine = create_engine(sql_path)
         self._session = sessionmaker(bind=self._engine)
+
+        schema = config.get("schema", "")
+        if schema:
+            for table in Base.metadata.tables.values():
+                table.schema = schema
+
         # Create all tables defined in the Base metadata if they don't exist
         Base.metadata.create_all(self._engine)
 
