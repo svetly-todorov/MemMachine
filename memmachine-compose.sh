@@ -217,7 +217,12 @@ start_services() {
         COMPOSE_CMD="docker compose"
     fi
     
-    # Pull and start services (override the image if specified in memmachine-compose.sh start <image>:<tag>)
+    # Pull the latest images to ensure we are running the latest version
+    print_info "Pulling latest images..."
+    $COMPOSE_CMD pull
+
+    # Start services (override the image if specified in memmachine-compose.sh start <image>:<tag>)
+    print_info "Starting containers..."
     MEMMACHINE_IMAGE="${ENV_MEMMACHINE_IMAGE:-}" $COMPOSE_CMD up -d
     
     print_success "Services started successfully!"
