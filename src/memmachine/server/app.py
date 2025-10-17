@@ -10,6 +10,7 @@ It includes:
   connections and memory managers.
 """
 
+import argparse
 import asyncio
 import copy
 import logging
@@ -1112,8 +1113,36 @@ def main():
     )
     # Load environment variables from .env file
     load_dotenv()
-    # Run the asyncio event loop
-    asyncio.run(start())
+
+    # Parse command line arguments
+    parser = argparse.ArgumentParser(description="MemMachine server")
+    parser.add_argument(
+        "--stdio",
+        action="store_true",
+        help="Run in MCP stdio mode",
+    )
+    args = parser.parse_args()
+
+    if args.stdio:
+        # MCP stdio mode
+        config_file = os.getenv("MEMORY_CONFIG", "configuration.yml")
+
+        async def run_mcp_server():
+            """Initialize resources and run MCP server in the same event loop."""
+            global episodic_memory, profile_memory
+            try:
+                episodic_memory, profile_memory = await initialize_resource(config_file)
+                await profile_memory.startup()
+                await mcp.run_stdio_async()
+            finally:
+                # Clean up resources when server stops
+                if profile_memory:
+                    await profile_memory.cleanup()
+
+        asyncio.run(run_mcp_server())
+    else:
+        # HTTP mode for REST API
+        asyncio.run(start())
 
 
 if __name__ == "__main__":
