@@ -9,7 +9,7 @@
   },
   "integrations": {
   "gtm": {
-    "measurementId": "GTM-WDX7ZBC7"
+    "tagID": "GTM-WDX7ZBC7"
   }
 },
   "favicon": "favicon.ico",
