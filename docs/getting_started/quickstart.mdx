@@ -86,17 +86,18 @@ This method is recommended for most users.
     The `MemMachine-compose.sh` script does more than simply install memmachine, although that is it's default behavior.  As the commands associated with this script (shown below) describe, it can be used for stopping, restarting, viewing logs, and cleaning up your memmachine installation.
     ```sh
       ./memmachine-compose.sh --help
-      MemMachine Docker Startup Script
-      
-      Usage: ./memmachine-compose.sh [command]
-      
-      Commands:
-        (no args)  Start MemMachine services
-        stop       Stop MemMachine services
-        restart    Restart MemMachine services
-        logs       Show service logs
-        clean      Remove all services and data
-        help       Show this help message
+        MemMachine Docker Startup Script
+
+        Usage: ./memmachine-compose.sh [command]
+
+        Commands:
+          (no args) | start [<image>:<tag>]                      Start MemMachine services
+          stop                                                   Stop MemMachine services
+          restart                                                Restart MemMachine services
+          logs                                                   Show service logs
+          clean                                                  Remove all services and data
+          build [<image>:<tag>] [--gpu true/false] [-f|--force]  Build a custom MemMachine image
+          help                                                   Show this help message
     ```
   </Step>
 </Steps>
