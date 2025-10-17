@@ -12,7 +12,6 @@ from uuid import uuid4
 import openai
 
 from memmachine.common.data_types import ExternalServiceAPIError
-from memmachine.common.metrics_factory.metrics_factory import MetricsFactory
 
 from .language_model import LanguageModel
 
@@ -72,54 +71,6 @@ class OpenAILanguageModel(LanguageModel):
 
         if self._max_retry_interval_seconds <= 0:
             raise ValueError("max_retry_interval_seconds must be a positive integer")
-
-        metrics_factory = config.get("metrics_factory")
-        if metrics_factory is not None and not isinstance(
-            metrics_factory, MetricsFactory
-        ):
-            raise TypeError("Metrics factory must be an instance of MetricsFactory")
-
-        self._collect_metrics = False
-        if metrics_factory is not None:
-            self._collect_metrics = True
-            self._user_metrics_labels = config.get("user_metrics_labels", {})
-            if not isinstance(self._user_metrics_labels, dict):
-                raise TypeError("user_metrics_labels must be a dictionary")
-            label_names = self._user_metrics_labels.keys()
-
-            self._input_tokens_usage_counter = metrics_factory.get_counter(
-                "language_model_openai_usage_input_tokens",
-                "Number of input tokens used for OpenAI language model",
-                label_names=label_names,
-            )
-            self._input_cached_tokens_usage_counter = metrics_factory.get_counter(
-                "language_model_openai_usage_input_cached_tokens",
-                (
-                    "Number of tokens retrieved from cache "
-                    "used for OpenAI language model"
-                ),
-                label_names=label_names,
-            )
-            self._output_tokens_usage_counter = metrics_factory.get_counter(
-                "language_model_openai_usage_output_tokens",
-                "Number of output tokens used for OpenAI language model",
-                label_names=label_names,
-            )
-            self._output_reasoning_tokens_usage_counter = metrics_factory.get_counter(
-                "language_model_openai_usage_output_reasoning_tokens",
-                ("Number of reasoning tokens used for OpenAI language model"),
-                label_names=label_names,
-            )
-            self._total_tokens_usage_counter = metrics_factory.get_counter(
-                "language_model_openai_usage_total_tokens",
-                "Number of tokens used for OpenAI language model",
-                label_names=label_names,
-            )
-            self._latency_summary = metrics_factory.get_summary(
-                "language_model_openai_latency_seconds",
-                "Latency in seconds for OpenAI language model requests",
-                label_names=label_names,
-            )
 
     async def generate_response(
         self,
@@ -219,33 +170,6 @@ class OpenAILanguageModel(LanguageModel):
                 "latency_seconds": end_time - start_time,
                 "model": self._model,
             }
-        
-        # Legacy metrics tracking (will be removed in Phase 4)
-        if self._collect_metrics and response.usage is not None:
-            self._input_tokens_usage_counter.increment(
-                value=response.usage.input_tokens,
-                labels=self._user_metrics_labels,
-            )
-            self._input_cached_tokens_usage_counter.increment(
-                value=response.usage.input_tokens_details.cached_tokens,
-                labels=self._user_metrics_labels,
-            )
-            self._output_tokens_usage_counter.increment(
-                value=response.usage.output_tokens,
-                labels=self._user_metrics_labels,
-            )
-            self._output_reasoning_tokens_usage_counter.increment(
-                value=response.usage.output_tokens_details.reasoning_tokens,
-                labels=self._user_metrics_labels,
-            )
-            self._total_tokens_usage_counter.increment(
-                value=response.usage.total_tokens,
-                labels=self._user_metrics_labels,
-            )
-            self._latency_summary.observe(
-                value=end_time - start_time,
-                labels=self._user_metrics_labels,
-            )
         
         if response.output is None:
             return (response.output_text or "", [], usage_stats)
