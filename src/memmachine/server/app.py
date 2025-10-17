@@ -14,6 +14,7 @@ import asyncio
 import copy
 import logging
 import os
+import time
 from contextlib import asynccontextmanager
 from importlib import import_module
 from typing import Any, Self, cast
@@ -26,7 +27,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.params import Depends
 from fastapi.responses import Response
 from fastmcp import Context, FastMCP
-from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
+from prometheus_client import CONTENT_TYPE_LATEST, generate_latest, Counter, Histogram
 from pydantic import BaseModel, Field
 
 from memmachine.common.embedder import EmbedderBuilder
@@ -237,6 +238,47 @@ class DeleteDataRequest(RequestWithSession):
 # Global instances for memory managers, initialized during app startup.
 profile_memory: ProfileMemory | None = None
 episodic_memory: EpisodicMemoryManager | None = None
+
+
+# === Per-User Prometheus Metrics ===
+# API call tracking
+api_calls_counter = Counter(
+    'memmachine_api_calls_total',
+    'Total number of API calls per user and endpoint',
+    ['user_id', 'group_id', 'endpoint', 'method', 'status']
+)
+
+# Request duration tracking
+request_duration_histogram = Histogram(
+    'memmachine_request_duration_seconds',
+    'Request duration in seconds',
+    ['user_id', 'group_id', 'endpoint', 'method'],
+    buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0, 60.0]
+)
+
+# Memory operation counters
+memory_operations_counter = Counter(
+    'memmachine_memory_operations_total',
+    'Memory operations (add/search/delete) per user',
+    ['user_id', 'group_id', 'operation_type', 'memory_type']
+)
+
+
+# === Helper Functions ===
+
+
+def track_api_call(session: SessionData, endpoint: str, method: str, status: str = "success"):
+    """Track API call metrics for a given session."""
+    user_id = session.user_id[0] if session.user_id and len(session.user_id) > 0 else "unknown"
+    group_id = session.group_id or "unknown"
+    
+    api_calls_counter.labels(
+        user_id=user_id,
+        group_id=group_id,
+        endpoint=endpoint,
+        method=method,
+        status=status
+    ).inc()
 
 
 # === Lifespan Management ===
@@ -643,7 +685,35 @@ async def add_memory(
                        for the given context.
     """
     episode.merge_and_validate_session(session)
-    await _add_memory(episode)
+    
+    sess = episode.get_session()
+    user_id = sess.user_id[0] if sess.user_id and len(sess.user_id) > 0 else "unknown"
+    group_id = sess.group_id or "unknown"
+    
+    start_time = time.time()
+    try:
+        await _add_memory(episode)
+        
+        # Track successful operation
+        track_api_call(sess, "/v1/memories", "POST", "success")
+        memory_operations_counter.labels(
+            user_id=user_id,
+            group_id=group_id,
+            operation_type="add",
+            memory_type="both"
+        ).inc()
+        
+    except Exception as e:
+        track_api_call(sess, "/v1/memories", "POST", "error")
+        raise
+    finally:
+        duration = time.time() - start_time
+        request_duration_histogram.labels(
+            user_id=user_id,
+            group_id=group_id,
+            endpoint="/v1/memories",
+            method="POST"
+        ).observe(duration)
 
 
 async def _add_memory(episode: NewEpisode):
@@ -716,7 +786,35 @@ async def add_episodic_memory(
                        for the given context.
     """
     episode.merge_and_validate_session(session)
-    await _add_episodic_memory(episode)
+    
+    sess = episode.get_session()
+    user_id = sess.user_id[0] if sess.user_id and len(sess.user_id) > 0 else "unknown"
+    group_id = sess.group_id or "unknown"
+    
+    start_time = time.time()
+    try:
+        await _add_episodic_memory(episode)
+        
+        # Track successful operation
+        track_api_call(sess, "/v1/memories/episodic", "POST", "success")
+        memory_operations_counter.labels(
+            user_id=user_id,
+            group_id=group_id,
+            operation_type="add",
+            memory_type="episodic"
+        ).inc()
+        
+    except Exception as e:
+        track_api_call(sess, "/v1/memories/episodic", "POST", "error")
+        raise
+    finally:
+        duration = time.time() - start_time
+        request_duration_histogram.labels(
+            user_id=user_id,
+            group_id=group_id,
+            endpoint="/v1/memories/episodic",
+            method="POST"
+        ).observe(duration)
 
 
 async def _add_episodic_memory(episode: NewEpisode):
@@ -777,7 +875,35 @@ async def add_profile_memory(
                        for the given context.
     """
     episode.merge_and_validate_session(session)
-    await _add_profile_memory(episode)
+    
+    sess = episode.get_session()
+    user_id = sess.user_id[0] if sess.user_id and len(sess.user_id) > 0 else "unknown"
+    group_id = sess.group_id or "unknown"
+    
+    start_time = time.time()
+    try:
+        await _add_profile_memory(episode)
+        
+        # Track successful operation
+        track_api_call(sess, "/v1/memories/profile", "POST", "success")
+        memory_operations_counter.labels(
+            user_id=user_id,
+            group_id=group_id,
+            operation_type="add",
+            memory_type="profile"
+        ).inc()
+        
+    except Exception as e:
+        track_api_call(sess, "/v1/memories/profile", "POST", "error")
+        raise
+    finally:
+        duration = time.time() - start_time
+        request_duration_histogram.labels(
+            user_id=user_id,
+            group_id=group_id,
+            endpoint="/v1/memories/profile",
+            method="POST"
+        ).observe(duration)
 
 
 async def _add_profile_memory(episode: NewEpisode):
@@ -824,7 +950,36 @@ async def search_memory(
         HTTPException: 404 if no matching episodic memory instance is found.
     """
     q.merge_and_validate_session(session)
-    return await _search_memory(q)
+    
+    sess = q.get_session()
+    user_id = sess.user_id[0] if sess.user_id and len(sess.user_id) > 0 else "unknown"
+    group_id = sess.group_id or "unknown"
+    
+    start_time = time.time()
+    try:
+        result = await _search_memory(q)
+        
+        # Track successful operation
+        track_api_call(sess, "/v1/memories/search", "POST", "success")
+        memory_operations_counter.labels(
+            user_id=user_id,
+            group_id=group_id,
+            operation_type="search",
+            memory_type="both"
+        ).inc()
+        
+        return result
+    except Exception as e:
+        track_api_call(sess, "/v1/memories/search", "POST", "error")
+        raise
+    finally:
+        duration = time.time() - start_time
+        request_duration_histogram.labels(
+            user_id=user_id,
+            group_id=group_id,
+            endpoint="/v1/memories/search",
+            method="POST"
+        ).observe(duration)
 
 
 async def _search_memory(q: SearchQuery) -> SearchResult:
@@ -884,7 +1039,36 @@ async def search_episodic_memory(
         HTTPException: 404 if no matching episodic memory instance is found.
     """
     q.merge_and_validate_session(session)
-    return await _search_episodic_memory(q)
+    
+    sess = q.get_session()
+    user_id = sess.user_id[0] if sess.user_id and len(sess.user_id) > 0 else "unknown"
+    group_id = sess.group_id or "unknown"
+    
+    start_time = time.time()
+    try:
+        result = await _search_episodic_memory(q)
+        
+        # Track successful operation
+        track_api_call(sess, "/v1/memories/episodic/search", "POST", "success")
+        memory_operations_counter.labels(
+            user_id=user_id,
+            group_id=group_id,
+            operation_type="search",
+            memory_type="episodic"
+        ).inc()
+        
+        return result
+    except Exception as e:
+        track_api_call(sess, "/v1/memories/episodic/search", "POST", "error")
+        raise
+    finally:
+        duration = time.time() - start_time
+        request_duration_histogram.labels(
+            user_id=user_id,
+            group_id=group_id,
+            endpoint="/v1/memories/episodic/search",
+            method="POST"
+        ).observe(duration)
 
 
 async def _search_episodic_memory(q: SearchQuery) -> SearchResult:
@@ -927,7 +1111,36 @@ async def search_profile_memory(
         HTTPException: 404 if no matching episodic memory instance is found.
     """
     q.merge_and_validate_session(session)
-    return await _search_profile_memory(q)
+    
+    sess = q.get_session()
+    user_id = sess.user_id[0] if sess.user_id and len(sess.user_id) > 0 else "unknown"
+    group_id = sess.group_id or "unknown"
+    
+    start_time = time.time()
+    try:
+        result = await _search_profile_memory(q)
+        
+        # Track successful operation
+        track_api_call(sess, "/v1/memories/profile/search", "POST", "success")
+        memory_operations_counter.labels(
+            user_id=user_id,
+            group_id=group_id,
+            operation_type="search",
+            memory_type="profile"
+        ).inc()
+        
+        return result
+    except Exception as e:
+        track_api_call(sess, "/v1/memories/profile/search", "POST", "error")
+        raise
+    finally:
+        duration = time.time() - start_time
+        request_duration_histogram.labels(
+            user_id=user_id,
+            group_id=group_id,
+            endpoint="/v1/memories/profile/search",
+            method="POST"
+        ).observe(duration)
 
 
 async def _search_profile_memory(q: SearchQuery) -> SearchResult:
@@ -963,7 +1176,35 @@ async def delete_session_data(
         session: The session data from headers to merge with the request.
     """
     delete_req.merge_and_validate_session(session)
-    await _delete_session_data(delete_req)
+    
+    sess = delete_req.get_session()
+    user_id = sess.user_id[0] if sess.user_id and len(sess.user_id) > 0 else "unknown"
+    group_id = sess.group_id or "unknown"
+    
+    start_time = time.time()
+    try:
+        await _delete_session_data(delete_req)
+        
+        # Track successful operation
+        track_api_call(sess, "/v1/memories", "DELETE", "success")
+        memory_operations_counter.labels(
+            user_id=user_id,
+            group_id=group_id,
+            operation_type="delete",
+            memory_type="both"
+        ).inc()
+        
+    except Exception as e:
+        track_api_call(sess, "/v1/memories", "DELETE", "error")
+        raise
+    finally:
+        duration = time.time() - start_time
+        request_duration_histogram.labels(
+            user_id=user_id,
+            group_id=group_id,
+            endpoint="/v1/memories",
+            method="DELETE"
+        ).observe(duration)
 
 
 async def _delete_session_data(delete_req: DeleteDataRequest):
