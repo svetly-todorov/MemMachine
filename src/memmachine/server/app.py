@@ -263,6 +263,20 @@ memory_operations_counter = Counter(
     ['user_id', 'group_id', 'operation_type', 'memory_type']
 )
 
+# Per-user token tracking
+llm_tokens_counter = Counter(
+    'memmachine_llm_tokens_total',
+    'LLM tokens consumed per user',
+    ['user_id', 'group_id', 'token_type', 'model']
+)
+
+llm_latency_histogram = Histogram(
+    'memmachine_llm_latency_seconds',
+    'LLM request latency per user',
+    ['user_id', 'group_id', 'model'],
+    buckets=[0.1, 0.5, 1.0, 2.0, 5.0, 10.0, 30.0]
+)
+
 
 # === Helper Functions ===
 
@@ -279,6 +293,67 @@ def track_api_call(session: SessionData, endpoint: str, method: str, status: str
         method=method,
         status=status
     ).inc()
+
+
+def track_llm_usage(user_id: str, group_id: str, usage_stats: dict[str, Any] | None):
+    """Track LLM token usage and latency for a given user."""
+    if not usage_stats:
+        return
+    
+    model = usage_stats.get("model", "unknown")
+    
+    # Track input tokens
+    if "input_tokens" in usage_stats:
+        llm_tokens_counter.labels(
+            user_id=user_id,
+            group_id=group_id,
+            token_type="input",
+            model=model
+        ).inc(usage_stats["input_tokens"])
+    
+    # Track input cached tokens (OpenAI specific)
+    if "input_cached_tokens" in usage_stats and usage_stats["input_cached_tokens"] > 0:
+        llm_tokens_counter.labels(
+            user_id=user_id,
+            group_id=group_id,
+            token_type="input_cached",
+            model=model
+        ).inc(usage_stats["input_cached_tokens"])
+    
+    # Track output tokens
+    if "output_tokens" in usage_stats:
+        llm_tokens_counter.labels(
+            user_id=user_id,
+            group_id=group_id,
+            token_type="output",
+            model=model
+        ).inc(usage_stats["output_tokens"])
+    
+    # Track output reasoning tokens (OpenAI o1 specific)
+    if "output_reasoning_tokens" in usage_stats and usage_stats["output_reasoning_tokens"] > 0:
+        llm_tokens_counter.labels(
+            user_id=user_id,
+            group_id=group_id,
+            token_type="output_reasoning",
+            model=model
+        ).inc(usage_stats["output_reasoning_tokens"])
+    
+    # Track total tokens
+    if "total_tokens" in usage_stats:
+        llm_tokens_counter.labels(
+            user_id=user_id,
+            group_id=group_id,
+            token_type="total",
+            model=model
+        ).inc(usage_stats["total_tokens"])
+    
+    # Track latency
+    if "latency_seconds" in usage_stats:
+        llm_latency_histogram.labels(
+            user_id=user_id,
+            group_id=group_id,
+            model=model
+        ).observe(usage_stats["latency_seconds"])
 
 
 # === Lifespan Management ===
@@ -762,6 +837,9 @@ async def _add_memory(episode: NewEpisode):
             },
             user_id=episode.producer,
         )
+        
+        # TODO: Track per-user token usage for ProfileMemory LLM calls
+        # See similar TODO in _add_profile_memory for details
 
 
 @app.post("/v1/memories/episodic")
@@ -926,6 +1004,11 @@ async def _add_profile_memory(episode: NewEpisode):
         },
         user_id=episode.producer,
     )
+    
+    # TODO: Track per-user token usage for ProfileMemory LLM calls
+    # ProfileMemory processes messages in background tasks, making it difficult
+    # to return usage stats synchronously. Future enhancement: Add a callback
+    # mechanism or usage accumulator in ProfileMemory to track tokens per user.
 
 
 @app.post("/v1/memories/search")

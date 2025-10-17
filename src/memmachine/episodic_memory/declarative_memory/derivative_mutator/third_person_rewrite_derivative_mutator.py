@@ -57,6 +57,7 @@ class ThirdPersonRewriteDerivativeMutator(DerivativeMutator):
         (
             _,
             function_calls_arguments,
+            _,
         ) = await self._language_model.generate_response(
             system_prompt=THIRD_PERSON_REWRITE_SYSTEM_PROMPT,
             user_prompt=THIRD_PERSON_REWRITE_USER_PROMPT.format(
