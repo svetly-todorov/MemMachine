@@ -126,7 +126,7 @@ class OpenAICompatibleLanguageModel(LanguageModel):
         tools: list[dict[str, Any]] | None = None,
         tool_choice: str | dict[str, str] = "auto",
         max_attempts: int = 1,
-    ) -> tuple[str, Any]:
+    ) -> tuple[str, Any, dict[str, Any] | None]:
         if max_attempts <= 0:
             raise ValueError("max_attempts must be a positive integer")
 
@@ -189,6 +189,18 @@ class OpenAICompatibleLanguageModel(LanguageModel):
 
         end_time = time.monotonic()
 
+        # Build usage statistics dict instead of tracking metrics here
+        usage_stats = None
+        if response.usage is not None:
+            usage_stats = {
+                "input_tokens": response.usage.prompt_tokens,
+                "output_tokens": response.usage.completion_tokens,
+                "total_tokens": response.usage.total_tokens,
+                "latency_seconds": end_time - start_time,
+                "model": self._model,
+            }
+        
+        # Legacy metrics tracking (will be removed in Phase 4)
         if self._collect_metrics and response.usage is not None:
             self._input_tokens_usage_counter.increment(
                 value=response.usage.prompt_tokens,
@@ -226,4 +238,5 @@ class OpenAICompatibleLanguageModel(LanguageModel):
         return (
             response.choices[0].message.content,
             function_calls_arguments,
+            usage_stats,
         )

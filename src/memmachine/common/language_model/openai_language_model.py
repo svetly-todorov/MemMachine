@@ -128,7 +128,7 @@ class OpenAILanguageModel(LanguageModel):
         tools: list[dict[str, Any]] | None = None,
         tool_choice: str | dict[str, str] = "auto",
         max_attempts: int = 1,
-    ) -> tuple[str, Any]:
+    ) -> tuple[str, Any, dict[str, Any] | None]:
         if max_attempts <= 0:
             raise ValueError("max_attempts must be a positive integer")
 
@@ -207,6 +207,20 @@ class OpenAILanguageModel(LanguageModel):
             end_time - start_time,
         )
 
+        # Build usage statistics dict instead of tracking metrics here
+        usage_stats = None
+        if response.usage is not None:
+            usage_stats = {
+                "input_tokens": response.usage.input_tokens,
+                "input_cached_tokens": response.usage.input_tokens_details.cached_tokens,
+                "output_tokens": response.usage.output_tokens,
+                "output_reasoning_tokens": response.usage.output_tokens_details.reasoning_tokens,
+                "total_tokens": response.usage.total_tokens,
+                "latency_seconds": end_time - start_time,
+                "model": self._model,
+            }
+        
+        # Legacy metrics tracking (will be removed in Phase 4)
         if self._collect_metrics and response.usage is not None:
             self._input_tokens_usage_counter.increment(
                 value=response.usage.input_tokens,
@@ -232,8 +246,9 @@ class OpenAILanguageModel(LanguageModel):
                 value=end_time - start_time,
                 labels=self._user_metrics_labels,
             )
+        
         if response.output is None:
-            return (response.output_text or "", [])
+            return (response.output_text or "", [], usage_stats)
 
         try:
             function_calls_arguments = [
@@ -253,4 +268,5 @@ class OpenAILanguageModel(LanguageModel):
         return (
             response.output_text,
             function_calls_arguments,
+            usage_stats,
         )

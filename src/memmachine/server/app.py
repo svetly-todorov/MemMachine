@@ -692,6 +692,9 @@ async def _add_memory(episode: NewEpisode):
             },
             user_id=episode.producer,
         )
+        
+        # TODO: Track per-user token usage for ProfileMemory LLM calls
+        # See similar TODO in _add_profile_memory for details
 
 
 @app.post("/v1/memories/episodic")
@@ -800,6 +803,11 @@ async def _add_profile_memory(episode: NewEpisode):
         },
         user_id=episode.producer,
     )
+    
+    # TODO: Track per-user token usage for ProfileMemory LLM calls
+    # ProfileMemory processes messages in background tasks, making it difficult
+    # to return usage stats synchronously. Future enhancement: Add a callback
+    # mechanism or usage accumulator in ProfileMemory to track tokens per user.
 
 
 @app.post("/v1/memories/search")

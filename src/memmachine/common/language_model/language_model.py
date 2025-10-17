@@ -19,7 +19,7 @@ class LanguageModel(ABC):
         tools: list[dict[str, Any]] | None = None,
         tool_choice: str | dict[str, str] = "auto",
         max_attempts: int = 1,
-    ) -> tuple[str, Any]:
+    ) -> tuple[str, Any, dict[str, Any] | None]:
         """
         Generate a response based on the provided prompts and tools.
 
@@ -42,9 +42,17 @@ class LanguageModel(ABC):
 
 
         Returns:
-            tuple[str, Any]:
-                A tuple containing the generated response text
-                and tool call outputs (if any).
+            tuple[str, Any, dict[str, Any] | None]:
+                A tuple containing:
+                - Generated response text (str)
+                - Tool call outputs (if any)
+                - Usage statistics dict (or None if unavailable) containing:
+                  - input_tokens: Number of input tokens
+                  - output_tokens: Number of output tokens
+                  - total_tokens: Total tokens used
+                  - latency_seconds: Request latency
+                  - model: Model name/identifier
+                  (Additional fields may vary by implementation)
 
         Raises:
             ExternalServiceAPIError:
