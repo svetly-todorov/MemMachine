@@ -19,6 +19,7 @@ from pydantic import BaseModel
 from memmachine.common.data_types import ExternalServiceAPIError
 from memmachine.common.embedder.embedder import Embedder
 from memmachine.common.language_model.language_model import LanguageModel
+from memmachine.common.utils import extract_metrics_labels_from_isolations
 
 from .prompt_provider import ProfilePrompt
 from .storage.storage_base import ProfileStorageBase
@@ -563,6 +564,14 @@ class ProfileMemory:
         )
         # Use chain-of-thought to get entity profile update commands.
         try:
+            # Extract individual metrics labels from isolations
+            metrics_labels = extract_metrics_labels_from_isolations(
+                isolations=isolations,
+                default_user_id=user_id,
+            )
+            # Set the default metrics labels before generating response
+            self._model.set_default_metrics_labels(**metrics_labels)
+            # Generate the response
             response_text, _ = await self._model.generate_response(
                 system_prompt=self._update_prompt, user_prompt=user_prompt
             )
@@ -694,18 +703,28 @@ class ProfileMemory:
                 user_id, thresh=5, isolations=isolations
             )
             await asyncio.gather(
-                *[self._deduplicate_profile(user_id, section) for section in s]
+                *[self._deduplicate_profile(user_id, section, isolations) for section in s]
             )
 
     async def _deduplicate_profile(
         self,
         user_id: str,
         memories: list[dict[str, Any]],
+        isolations: dict[str, bool | int | float | str] | None = None,
     ):
         """
         sends a list of features to an llm to consolidated
         """
         try:
+            # Extract individual metrics labels from isolations if available
+            if isolations is not None:
+                metrics_labels = extract_metrics_labels_from_isolations(
+                    isolations=isolations,
+                    default_user_id=user_id,
+                )
+                # Set the default metrics labels before generating response
+                self._model.set_default_metrics_labels(**metrics_labels)
+            
             response_text, _ = await self._model.generate_response(
                 system_prompt=self._consolidation_prompt,
                 user_prompt=json.dumps(memories),

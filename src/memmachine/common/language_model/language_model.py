@@ -3,13 +3,47 @@ Abstract base class for a language model.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from memmachine.episodic_memory.data_types import MemoryContext
 
 
 class LanguageModel(ABC):
     """
     Abstract base class for a language model.
     """
+
+    DEFAULT_METRICS_LABELS: dict[str, str] = {
+        "group_id": "",
+        "agent_id": "",
+        "user_id": "",
+        "session_id": "",
+    }
+
+    def set_default_metrics_labels(
+        self,
+        user_id: str = "",
+        agent_id: str = "",
+        group_id: str = "",
+        session_id: str = "",
+    ) -> None:
+        """
+        Set the default metrics labels for the language model.
+        
+        Each language model call should be attributed to a specific user and agent
+        for accurate token usage tracking.
+        
+        Args:
+            user_id: The specific user ID for this LLM call (e.g., the message producer).
+            agent_id: The specific agent ID for this LLM call (e.g., the agent being called).
+            group_id: The group identifier.
+            session_id: The session identifier.
+        """
+        self.DEFAULT_METRICS_LABELS["user_id"] = user_id
+        self.DEFAULT_METRICS_LABELS["agent_id"] = agent_id
+        self.DEFAULT_METRICS_LABELS["group_id"] = group_id
+        self.DEFAULT_METRICS_LABELS["session_id"] = session_id
 
     @abstractmethod
     async def generate_response(

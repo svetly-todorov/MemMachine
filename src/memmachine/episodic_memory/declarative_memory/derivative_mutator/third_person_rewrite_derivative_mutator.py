@@ -10,6 +10,7 @@ from typing import Any
 from uuid import uuid4
 
 from memmachine.common.language_model.language_model import LanguageModel
+from memmachine.common.utils import extract_metrics_labels_from_isolations
 
 from ..data_types import ContentType, Derivative, EpisodeCluster
 from .derivative_mutator import DerivativeMutator
@@ -54,6 +55,18 @@ class ThirdPersonRewriteDerivativeMutator(DerivativeMutator):
         derivative: Derivative,
         source_episode_cluster: EpisodeCluster,
     ) -> list[Derivative]:
+        # Extract individual metrics labels from filterable_properties
+        filterable_props = source_episode_cluster.filterable_properties
+        
+        # Set default metrics labels for this specific LLM call
+        if filterable_props:
+            metrics_labels = extract_metrics_labels_from_isolations(
+                isolations=filterable_props,
+                default_user_id="",
+            )
+            self._language_model.set_default_metrics_labels(**metrics_labels)
+        
+        # Generate the response
         (
             _,
             function_calls_arguments,

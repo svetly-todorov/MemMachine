@@ -43,3 +43,56 @@ def async_locked(func):
             return await func(*args, **kwargs)
 
     return wrapper
+
+
+def extract_metrics_labels_from_isolations(
+    isolations: dict[str, bool | int | float | str],
+    default_user_id: str = "",
+) -> dict[str, str]:
+    """Extract individual metrics labels from an isolations dictionary.
+
+    For metrics tracking, we need single user_id and agent_id values, not sets.
+    This function extracts the appropriate IDs for attributing LLM token usage.
+
+    Args:
+        isolations: A dictionary containing group_id, session_id,
+                   producer, produced_for, and other isolation keys.
+        default_user_id: The default user_id to use if not found in isolations.
+
+    Returns:
+        A dictionary with keys: user_id, agent_id, group_id, session_id.
+        Each value is a single string identifier.
+
+    Example:
+        >>> isolations = {
+        ...     "group_id": "team-a",
+        ...     "session_id": "conv-123",
+        ...     "producer": "user-1",
+        ...     "produced_for": "agent-1"
+        ... }
+        >>> labels = extract_metrics_labels_from_isolations(isolations)
+        >>> labels["user_id"]
+        'user-1'
+        >>> labels["agent_id"]
+        'agent-1'
+    """
+    # Extract the producer as user_id (the one making the request)
+    user_id = str(isolations.get("producer", default_user_id))
+    
+    # Extract produced_for as agent_id (the one being called)
+    agent_id = str(isolations.get("produced_for", ""))
+    
+    # If produced_for looks like a user ID, check if there's an explicit agent_id
+    if "agent_id" in isolations:
+        agent_id = str(isolations["agent_id"])
+    
+    # Extract group and session
+    group_id = str(isolations.get("group_id", ""))
+    session_id = str(isolations.get("session_id", ""))
+    
+    return {
+        "user_id": user_id,
+        "agent_id": agent_id,
+        "group_id": group_id,
+        "session_id": session_id,
+    }

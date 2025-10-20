@@ -183,6 +183,18 @@ class SessionMemory:
             msg = self._summary_user_prompt.format(
                 episodes=episode_content, summary=self._summary
             )
+            # Extract individual IDs from memory context for metrics
+            # Use the first user_id and agent_id from the sets
+            user_id = next(iter(self._memory_context.user_id), "")
+            agent_id = next(iter(self._memory_context.agent_id), "")
+            # Set the default metrics labels before generating summary
+            self._model.set_default_metrics_labels(
+                user_id=user_id,
+                agent_id=agent_id,
+                group_id=self._memory_context.group_id,
+                session_id=self._memory_context.session_id,
+            )
+            # Generate the summary
             result = await self._model.generate_response(
                 system_prompt=self._summary_system_prompt, user_prompt=msg
             )
