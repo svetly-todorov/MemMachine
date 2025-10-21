@@ -97,8 +97,7 @@ class OpenAICompatibleLanguageModel(LanguageModel):
             self._user_metrics_labels = config.get("user_metrics_labels", {})
             if not isinstance(self._user_metrics_labels, dict):
                 raise TypeError("user_metrics_labels must be a dictionary")
-            # Merge the user-provided metrics with the default metrics
-            self._user_metrics_labels.update(self.DEFAULT_METRICS_LABELS)
+            self.set_default_metrics_labels()
             label_names = self._user_metrics_labels.keys()
 
             self._input_tokens_usage_counter = metrics_factory.get_counter(

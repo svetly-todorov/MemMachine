@@ -14,17 +14,10 @@ class LanguageModel(ABC):
     Abstract base class for a language model.
     """
 
-    DEFAULT_METRICS_LABELS: dict[str, str] = {
-        "group_id": "",
-        "agent_id": "",
-        "user_id": "",
-        "session_id": "",
-    }
-
     def __init__(self):
         """Initialize the language model with an empty metrics labels dict."""
         # Instance variable for metrics labels, managed by base class
-        self._user_metrics_labels: dict[str, str] | None = None
+        self._user_metrics_labels: dict[str, str] = {}
 
     def set_default_metrics_labels(
         self,
@@ -45,18 +38,10 @@ class LanguageModel(ABC):
             group_id: The group identifier.
             session_id: The session identifier.
         """
-        # Update class-level defaults
-        self.DEFAULT_METRICS_LABELS["user_id"] = user_id
-        self.DEFAULT_METRICS_LABELS["agent_id"] = agent_id
-        self.DEFAULT_METRICS_LABELS["group_id"] = group_id
-        self.DEFAULT_METRICS_LABELS["session_id"] = session_id
-        
-        # Also update instance variable if it exists (metrics are enabled)
-        if self._user_metrics_labels is not None:
-            self._user_metrics_labels["user_id"] = user_id
-            self._user_metrics_labels["agent_id"] = agent_id
-            self._user_metrics_labels["group_id"] = group_id
-            self._user_metrics_labels["session_id"] = session_id
+        self._user_metrics_labels["user_id"] = user_id
+        self._user_metrics_labels["agent_id"] = agent_id
+        self._user_metrics_labels["group_id"] = group_id
+        self._user_metrics_labels["session_id"] = session_id
 
     @abstractmethod
     async def generate_response(
