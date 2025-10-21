@@ -3,11 +3,7 @@ Abstract base class for a language model.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any, TYPE_CHECKING
-
-if TYPE_CHECKING:
-    from memmachine.episodic_memory.data_types import MemoryContext
-
+from typing import Any
 
 class LanguageModel(ABC):
     """
