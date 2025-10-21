@@ -54,7 +54,6 @@ class OpenAICompatibleLanguageModel(LanguageModel):
             TypeError:
                 If configuration argument values are of incorrect type.
         """
-        # Initialize base class which sets up _user_metrics_labels
         super().__init__()
 
         self._model = config.get("model")

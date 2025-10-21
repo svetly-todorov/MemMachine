@@ -5,6 +5,7 @@ Abstract base class for a language model.
 from abc import ABC, abstractmethod
 from typing import Any
 
+
 class LanguageModel(ABC):
     """
     Abstract base class for a language model.
