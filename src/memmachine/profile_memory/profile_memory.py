@@ -703,7 +703,10 @@ class ProfileMemory:
                 user_id, thresh=5, isolations=isolations
             )
             await asyncio.gather(
-                *[self._deduplicate_profile(user_id, section, isolations) for section in s]
+                *[
+                    self._deduplicate_profile(user_id, section, isolations)
+                    for section in s
+                ]
             )
 
     async def _deduplicate_profile(
@@ -724,7 +727,7 @@ class ProfileMemory:
                 )
                 # Set the default metrics labels before generating response
                 self._model.set_default_metrics_labels(**metrics_labels)
-            
+
             response_text, _ = await self._model.generate_response(
                 system_prompt=self._consolidation_prompt,
                 user_prompt=json.dumps(memories),

@@ -4,7 +4,7 @@ Common utility functions.
 
 import asyncio
 import functools
-from collections.abc import Awaitable
+from collections.abc import Awaitable, Mapping
 from contextlib import AbstractAsyncContextManager
 from typing import Any
 
@@ -46,7 +46,7 @@ def async_locked(func):
 
 
 def extract_metrics_labels_from_isolations(
-    isolations: dict[str, bool | int | float | str],
+    isolations: Mapping[str, bool | int | float | str],
     default_user_id: str = "",
 ) -> dict[str, str]:
     """Extract individual metrics labels from an isolations dictionary.
@@ -78,18 +78,18 @@ def extract_metrics_labels_from_isolations(
     """
     # Extract the producer as user_id (the one making the request)
     user_id = str(isolations.get("producer", default_user_id))
-    
+
     # Extract produced_for as agent_id (the one being called)
     agent_id = str(isolations.get("produced_for", ""))
-    
+
     # If produced_for looks like a user ID, check if there's an explicit agent_id
     if "agent_id" in isolations:
         agent_id = str(isolations["agent_id"])
-    
+
     # Extract group and session
     group_id = str(isolations.get("group_id", ""))
     session_id = str(isolations.get("session_id", ""))
-    
+
     return {
         "user_id": user_id,
         "agent_id": agent_id,

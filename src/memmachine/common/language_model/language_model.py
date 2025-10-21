@@ -25,10 +25,10 @@ class LanguageModel(ABC):
     ) -> None:
         """
         Set the default metrics labels for the language model.
-        
+
         Each language model call should be attributed to a specific user and agent
         for accurate token usage tracking.
-        
+
         Args:
             user_id: The specific user ID for this LLM call (e.g., the message producer).
             agent_id: The specific agent ID for this LLM call (e.g., the agent being called).

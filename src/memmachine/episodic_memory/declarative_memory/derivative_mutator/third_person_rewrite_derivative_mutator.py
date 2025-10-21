@@ -57,7 +57,7 @@ class ThirdPersonRewriteDerivativeMutator(DerivativeMutator):
     ) -> list[Derivative]:
         # Extract individual metrics labels from filterable_properties
         filterable_props = source_episode_cluster.filterable_properties
-        
+
         # Set default metrics labels for this specific LLM call
         if filterable_props:
             metrics_labels = extract_metrics_labels_from_isolations(
@@ -65,7 +65,7 @@ class ThirdPersonRewriteDerivativeMutator(DerivativeMutator):
                 default_user_id="",
             )
             self._language_model.set_default_metrics_labels(**metrics_labels)
-        
+
         # Generate the response
         (
             _,
