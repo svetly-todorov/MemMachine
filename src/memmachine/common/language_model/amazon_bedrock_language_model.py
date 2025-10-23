@@ -12,7 +12,7 @@ import boto3
 import botocore
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
-from memmachine.common.data_types import ExternalServiceAPIError, SessionDataProtocol, SessionDataProtocol
+from memmachine.common.data_types import ExternalServiceAPIError, SessionDataProtocol
 from memmachine.common.metrics_factory import MetricsFactory
 
 from .language_model import LanguageModel

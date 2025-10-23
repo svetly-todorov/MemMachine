@@ -186,25 +186,26 @@ class OpenAICompatibleLanguageModel(LanguageModel):
 
         end_time = time.monotonic()
 
-        if self._collect_metrics:
-            if response.usage is not None:
-                self._input_tokens_usage_counter.increment(
-                    value=response.usage.prompt_tokens,
-                    labels=self._user_metrics_labels | vars(session_data),
-                )
-                self._output_tokens_usage_counter.increment(
-                    value=response.usage.completion_tokens,
-                    labels=self._user_metrics_labels | vars(session_data),
-                )
-                self._total_tokens_usage_counter.increment(
-                    value=response.usage.total_tokens,
-                    labels=self._user_metrics_labels | vars(session_data),
-                )
+        if self._collect_metrics and session_data is not None:
+            for labels in session_data.generate_all_combinations():
+                if response.usage is not None:
+                    self._input_tokens_usage_counter.increment(
+                        value=response.usage.prompt_tokens,
+                        labels=self._user_metrics_labels | labels,
+                    )
+                    self._output_tokens_usage_counter.increment(
+                        value=response.usage.completion_tokens,
+                        labels=self._user_metrics_labels | labels,
+                    )
+                    self._total_tokens_usage_counter.increment(
+                        value=response.usage.total_tokens,
+                        labels=self._user_metrics_labels | labels,
+                    )
 
-            self._latency_summary.observe(
-                value=end_time - start_time,
-                labels=self._user_metrics_labels | vars(session_data),
-            )
+                self._latency_summary.observe(
+                    value=end_time - start_time,
+                    labels=self._user_metrics_labels | labels,
+                )
 
         function_calls_arguments = []
         try:

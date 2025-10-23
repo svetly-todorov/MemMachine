@@ -76,17 +76,8 @@ def extract_metrics_labels_from_isolations(
         >>> labels["agent_id"]
         'agent-1'
     """
-    # Extract the producer as user_id (the one making the request)
     user_id = str(isolations.get("producer", default_user_id))
-
-    # Extract produced_for as agent_id (the one being called)
-    agent_id = str(isolations.get("produced_for", ""))
-
-    # If produced_for looks like a user ID, check if there's an explicit agent_id
-    if "agent_id" in isolations:
-        agent_id = str(isolations["agent_id"])
-
-    # Extract group and session
+    agent_id = str(isolations.get("agent_id", ""))
     group_id = str(isolations.get("group_id", ""))
     session_id = str(isolations.get("session_id", ""))
 
