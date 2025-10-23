@@ -3,7 +3,7 @@ Abstract base class for a language model.
 """
 
 from abc import ABC, abstractmethod
-from typing import Any
+from typing import Any, get_type_hints
 
 from memmachine.common.data_types import SessionDataProtocol
 
@@ -23,7 +23,9 @@ class LanguageModel(ABC):
         if user_metrics_labels is not None and not isinstance(user_metrics_labels, dict):
             raise TypeError("user_metrics_labels must be a dictionary")
         self._user_metrics_labels = user_metrics_labels or {}
-        self._user_metrics_labels.update(vars(SessionDataProtocol()))
+        # Unpack the SessionDataProtocol field names, and merge them with the user-provided labels
+        # This is done dynamically because the session data fields are subject to change
+        self._user_metrics_labels.update({name: None for name in get_type_hints(SessionDataProtocol)})
 
     @abstractmethod
     async def generate_response(
