@@ -12,7 +12,7 @@ import boto3
 import botocore
 from pydantic import BaseModel, ConfigDict, Field, SecretStr
 
-from memmachine.common.data_types import ExternalServiceAPIError
+from memmachine.common.data_types import ExternalServiceAPIError, SessionDataProtocol, SessionDataProtocol
 from memmachine.common.metrics_factory import MetricsFactory
 
 from .language_model import LanguageModel
@@ -267,6 +267,7 @@ class AmazonBedrockLanguageModel(LanguageModel):
         tools: list[dict[str, Any]] | None = None,
         tool_choice: str | dict[str, str] | None = None,
         max_attempts: int = 1,
+        session_data: SessionDataProtocol | None = None,
     ) -> tuple[str, Any]:
         if max_attempts <= 0:
             raise ValueError("max_attempts must be a positive integer")
@@ -349,28 +350,28 @@ class AmazonBedrockLanguageModel(LanguageModel):
             if (response_usage := response.get("usage")) is not None:
                 self._input_tokens_usage_counter.increment(
                     value=response_usage.get("inputTokens", 0),
-                    labels=self._user_metrics_labels,
+                    labels=self._user_metrics_labels | vars(session_data),
                 )
                 self._output_tokens_usage_counter.increment(
                     value=response_usage.get("outputTokens", 0),
-                    labels=self._user_metrics_labels,
+                    labels=self._user_metrics_labels | vars(session_data),
                 )
                 self._total_tokens_usage_counter.increment(
                     value=response_usage.get("totalTokens", 0),
-                    labels=self._user_metrics_labels,
+                    labels=self._user_metrics_labels | vars(session_data),
                 )
                 self._cache_read_input_tokens_usage_counter.increment(
                     response_usage.get("cacheReadInputTokens", 0),
-                    labels=self._user_metrics_labels,
+                    labels=self._user_metrics_labels | vars(session_data),
                 )
                 self._cache_read_input_tokens_usage_counter.increment(
                     response_usage.get("cacheWriteInputTokens", 0),
-                    labels=self._user_metrics_labels,
+                    labels=self._user_metrics_labels | vars(session_data),
                 )
 
             self._latency_summary.observe(
                 value=end_time - start_time,
-                labels=self._user_metrics_labels,
+                labels=self._user_metrics_labels | vars(session_data),
             )
 
         text_block_strings = []

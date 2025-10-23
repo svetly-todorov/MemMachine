@@ -564,16 +564,13 @@ class ProfileMemory:
         )
         # Use chain-of-thought to get entity profile update commands.
         try:
-            # Extract individual metrics labels from isolations
-            metrics_labels = extract_metrics_labels_from_isolations(
-                isolations=isolations,
-                default_user_id=user_id,
-            )
-            # Set the default metrics labels before generating response
-            self._model.set_default_metrics_labels(**metrics_labels)
-            # Generate the response
             response_text, _ = await self._model.generate_response(
-                system_prompt=self._update_prompt, user_prompt=user_prompt
+                system_prompt=self._update_prompt,
+                user_prompt=user_prompt,
+                session_data=extract_metrics_labels_from_isolations(
+                    isolations=isolations,
+                    default_user_id=user_id,
+                )
             )
         except (ExternalServiceAPIError, ValueError, RuntimeError) as e:
             logger.error("Eror when update profile: %s", str(e))
@@ -719,18 +716,13 @@ class ProfileMemory:
         sends a list of features to an llm to consolidated
         """
         try:
-            # Extract individual metrics labels from isolations if available
-            if isolations is not None:
-                metrics_labels = extract_metrics_labels_from_isolations(
-                    isolations=isolations,
-                    default_user_id=user_id,
-                )
-                # Set the default metrics labels before generating response
-                self._model.set_default_metrics_labels(**metrics_labels)
-
             response_text, _ = await self._model.generate_response(
                 system_prompt=self._consolidation_prompt,
                 user_prompt=json.dumps(memories),
+                session_data=extract_metrics_labels_from_isolations(
+                    isolations=isolations,
+                    default_user_id=user_id,
+                )
             )
         except (ExternalServiceAPIError, ValueError, RuntimeError) as e:
             logger.error("Model Error when deduplicate profile: %s", str(e))

@@ -55,18 +55,6 @@ class ThirdPersonRewriteDerivativeMutator(DerivativeMutator):
         derivative: Derivative,
         source_episode_cluster: EpisodeCluster,
     ) -> list[Derivative]:
-        # Extract individual metrics labels from filterable_properties
-        filterable_props = source_episode_cluster.filterable_properties
-
-        # Set default metrics labels for this specific LLM call
-        if filterable_props:
-            metrics_labels = extract_metrics_labels_from_isolations(
-                isolations=filterable_props,
-                default_user_id="",
-            )
-            self._language_model.set_default_metrics_labels(**metrics_labels)
-
-        # Generate the response
         (
             _,
             function_calls_arguments,
@@ -83,6 +71,10 @@ class ThirdPersonRewriteDerivativeMutator(DerivativeMutator):
                 "type": "function",
                 "name": "submit_rewritten_derivative_content",
             },
+            session_data=extract_metrics_labels_from_isolations(
+                isolations=source_episode_cluster.filterable_properties,
+                default_user_id="",
+            )
         )
 
         rewritten_derivative_content = [

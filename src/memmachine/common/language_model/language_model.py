@@ -5,7 +5,7 @@ Abstract base class for a language model.
 from abc import ABC, abstractmethod
 from typing import Any
 
-from memmachine.common.data_types import SessionData
+from memmachine.common.data_types import SessionDataProtocol
 
 class LanguageModel(ABC):
     """
@@ -23,7 +23,7 @@ class LanguageModel(ABC):
         if user_metrics_labels is not None and not isinstance(user_metrics_labels, dict):
             raise TypeError("user_metrics_labels must be a dictionary")
         self._user_metrics_labels = user_metrics_labels or {}
-        self._user_metrics_labels.update(vars(SessionData()))
+        self._user_metrics_labels.update(vars(SessionDataProtocol()))
 
     @abstractmethod
     async def generate_response(
@@ -33,6 +33,7 @@ class LanguageModel(ABC):
         tools: list[dict[str, Any]] | None = None,
         tool_choice: str | dict[str, str] | None = None,
         max_attempts: int = 1,
+        session_data: SessionDataProtocol | None = None,
     ) -> tuple[str, Any]:
         """
         Generate a response based on the provided prompts and tools.

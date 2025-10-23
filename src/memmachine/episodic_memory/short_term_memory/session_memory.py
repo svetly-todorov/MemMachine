@@ -13,7 +13,7 @@ import asyncio
 import logging
 from collections import deque
 
-from memmachine.common.data_types import ExternalServiceAPIError
+from memmachine.common.data_types import ExternalServiceAPIError, SessionDataProtocol
 
 from ..data_types import Episode, MemoryContext
 
@@ -187,16 +187,16 @@ class SessionMemory:
             # Use the first user_id and agent_id from the sets
             user_id = next(iter(self._memory_context.user_id), "")
             agent_id = next(iter(self._memory_context.agent_id), "")
-            # Set the default metrics labels before generating summary
-            self._model.set_default_metrics_labels(
-                user_id=user_id,
-                agent_id=agent_id,
-                group_id=self._memory_context.group_id,
-                session_id=self._memory_context.session_id,
-            )
             # Generate the summary
             result = await self._model.generate_response(
-                system_prompt=self._summary_system_prompt, user_prompt=msg
+                system_prompt=self._summary_system_prompt,
+                user_prompt=msg,
+                session_data=SessionDataProtocol(
+                    user_id=user_id,
+                    agent_id=agent_id,
+                    group_id=self._memory_context.group_id,
+                    session_id=self._memory_context.session_id,
+                )
             )
             self._summary = result[0]
             logger.debug("Summary: %s\n", self._summary)
