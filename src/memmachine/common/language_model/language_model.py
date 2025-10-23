@@ -5,6 +5,7 @@ Abstract base class for a language model.
 from abc import ABC, abstractmethod
 from typing import Any
 
+from memmachine.common.data_types import SessionData
 
 class LanguageModel(ABC):
     """
@@ -15,30 +16,14 @@ class LanguageModel(ABC):
         """Initialize the language model with an empty metrics labels dict."""
         # Instance variable for metrics labels, managed by base class
         self._user_metrics_labels: dict[str, str] = {}
+        self._collect_metrics = False
 
-    def set_default_metrics_labels(
-        self,
-        user_id: str = "",
-        agent_id: str = "",
-        group_id: str = "",
-        session_id: str = "",
-    ) -> None:
-        """
-        Set the default metrics labels for the language model.
-
-        Each language model call should be attributed to a specific user and agent
-        for accurate token usage tracking.
-
-        Args:
-            user_id: The specific user ID for this LLM call (e.g., the message producer).
-            agent_id: The specific agent ID for this LLM call (e.g., the agent being called).
-            group_id: The group identifier.
-            session_id: The session identifier.
-        """
-        self._user_metrics_labels["user_id"] = user_id
-        self._user_metrics_labels["agent_id"] = agent_id
-        self._user_metrics_labels["group_id"] = group_id
-        self._user_metrics_labels["session_id"] = session_id
+    def set_default_user_metrics_labels(self, user_metrics_labels: dict[str, str] | None = None):
+        """Set the default user metrics labels."""
+        if user_metrics_labels is not None and not isinstance(user_metrics_labels, dict):
+            raise TypeError("user_metrics_labels must be a dictionary")
+        self._user_metrics_labels = user_metrics_labels or {}
+        self._user_metrics_labels.update(vars(SessionData()))
 
     @abstractmethod
     async def generate_response(

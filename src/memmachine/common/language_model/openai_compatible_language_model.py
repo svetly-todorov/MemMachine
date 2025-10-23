@@ -90,13 +90,8 @@ class OpenAICompatibleLanguageModel(LanguageModel):
         ):
             raise TypeError("Metrics factory must be an instance of MetricsFactory")
 
-        self._collect_metrics = False
         if metrics_factory is not None:
-            self._collect_metrics = True
-            self._user_metrics_labels = config.get("user_metrics_labels", {})
-            if not isinstance(self._user_metrics_labels, dict):
-                raise TypeError("user_metrics_labels must be a dictionary")
-            self.set_default_metrics_labels()
+            self.set_default_user_metrics_labels(config.get("user_metrics_labels"))
             label_names = self._user_metrics_labels.keys()
 
             self._input_tokens_usage_counter = metrics_factory.get_counter(
