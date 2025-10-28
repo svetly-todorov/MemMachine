@@ -166,11 +166,18 @@ class SessionData(BaseModel):
         examples=AppConst.SESSION_ID_EXAMPLES,
     )
 
+    _provided_fields: set[str] = Field(
+        default_factory=set,
+        exclude=True,
+        description="Internal field tracking which headers were actually provided",
+    )
+
     def merge(self, other: Self) -> None:
         """Merge another SessionData into this one in place.
 
         - Combine and deduplicate list fields.
-        - Overwrite string fields if the new value is set.
+        - Overwrite string fields only if they were actually provided in the other session.
+        - If other._provided_fields is empty (payload-based session), merge all fields (backward compat).
         """
 
         def merge_lists(a: list[str], b: list[str]) -> list[str]:
@@ -180,14 +187,21 @@ class SessionData(BaseModel):
                 ret = a or b
             return sorted(ret)
 
-        if other.group_id:
+        # If _provided_fields is empty, merge all fields (backward compat with payload-based sessions)
+        # Otherwise, only merge fields that were actually provided in headers
+        merge_all = len(other._provided_fields) == 0
+
+        if (merge_all or "group_id" in other._provided_fields) and other.group_id:
             self.group_id = other.group_id
 
-        if other.session_id:
+        if (merge_all or "session_id" in other._provided_fields) and other.session_id:
             self.session_id = other.session_id
 
-        self.agent_id = merge_lists(self.agent_id, other.agent_id)
-        self.user_id = merge_lists(self.user_id, other.user_id)
+        if merge_all or "agent_id" in other._provided_fields:
+            self.agent_id = merge_lists(self.agent_id, other.agent_id)
+
+        if merge_all or "user_id" in other._provided_fields:
+            self.user_id = merge_lists(self.user_id, other.user_id)
 
     def first_user_id(self) -> str:
         """Returns the first user ID if available, else default user id."""
@@ -280,15 +294,22 @@ class RequestWithSession(BaseModel):
     def merge_session(self, session: SessionData) -> None:
         """Merge another SessionData into this one in place.
 
-        - Combine and deduplicate list fields.
-        - Overwrite string fields if the new value is set.
+        - If the header session (session parameter) has ANY provided fields, 
+          use it entirely (with defaults) and ignore the payload session.
+        - Otherwise, keep the payload session as-is (headers not provided).
         """
         if self.session is None:
             logger.info(f"setting first-time session data with {session}")
             self.session = session
         else:
-            logger.info(f"first-time session already present. merging OTHER session: {session} with self: {self.session}")
-            self.session.merge(session)
+            # If headers have ANY fields provided, prefer headers entirely (with their defaults)
+            if len(session._provided_fields) > 0:
+                logger.info(f"header session has provided fields {session._provided_fields}, using header session entirely (ignoring payload session)")
+                self.session = session
+            else:
+                # No headers provided, keep payload session as-is
+                logger.info(f"no header fields provided, keeping payload session {self.session} (ignoring header defaults)")
+                # Don't merge - payload session takes precedence when no headers are provided
 
     def validate_session(self) -> None:
         """Validate that the session data is not empty.
@@ -393,38 +414,70 @@ def _split_str_to_list(s: str) -> list[str]:
 
 
 async def _get_session_from_header(
-    group_id: str = Header(
-        AppConst.DEFAULT_GROUP_ID,
+    group_id: str | None = Header(
+        None,
         alias=AppConst.GROUP_ID_KEY,
         description=AppConst.GROUP_ID_DOC,
         examples=AppConst.GROUP_ID_EXAMPLES,
     ),
-    session_id: str = Header(
-        AppConst.DEFAULT_SESSION_ID,
+    session_id: str | None = Header(
+        None,
         alias=AppConst.SESSION_ID_KEY,
         description=AppConst.SESSION_ID_DOC,
         examples=AppConst.SESSION_ID_EXAMPLES,
     ),
-    agent_id: str = Header(
-        "",
+    agent_id: str | None = Header(
+        None,
         alias=AppConst.AGENT_ID_KEY,
         description=AppConst.AGENT_ID_DOC,
         examples=AppConst.AGENT_ID_EXAMPLES,
     ),
-    user_id: str = Header(
-        "",
+    user_id: str | None = Header(
+        None,
         alias=AppConst.USER_ID_KEY,
         description=AppConst.USER_ID_DOC,
         examples=AppConst.USER_ID_EXAMPLES,
     ),
 ) -> SessionData:
-    """Extract session data from headers and return a SessionData object."""
-    return SessionData(
-        group_id=group_id,
-        session_id=session_id,
-        agent_id=_split_str_to_list(agent_id),
-        user_id=_split_str_to_list(user_id),
+    """Extract session data from headers and return a SessionData object.
+    
+    Tracks which fields were actually provided in headers via _provided_fields.
+    """
+    provided_fields = set()
+    
+    # Track provided fields and apply defaults if None
+    if group_id is not None:
+        provided_fields.add("group_id")
+        final_group_id = group_id
+    else:
+        final_group_id = AppConst.DEFAULT_GROUP_ID
+        
+    if session_id is not None:
+        provided_fields.add("session_id")
+        final_session_id = session_id
+    else:
+        final_session_id = AppConst.DEFAULT_SESSION_ID
+        
+    if agent_id is not None:
+        provided_fields.add("agent_id")
+        final_agent_id = agent_id
+    else:
+        final_agent_id = ""
+        
+    if user_id is not None:
+        provided_fields.add("user_id")
+        final_user_id = user_id
+    else:
+        final_user_id = ""
+    
+    session = SessionData(
+        group_id=final_group_id,
+        session_id=final_session_id,
+        agent_id=_split_str_to_list(final_agent_id),
+        user_id=_split_str_to_list(final_user_id),
     )
+    session._provided_fields = provided_fields
+    return session
 
 
 # === Response Models ===
