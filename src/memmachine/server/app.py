@@ -284,8 +284,10 @@ class RequestWithSession(BaseModel):
         - Overwrite string fields if the new value is set.
         """
         if self.session is None:
+            logger.info(f"setting first-time session data with {session}")
             self.session = session
         else:
+            logger.info(f"first-time session already present. merging OTHER session: {session} with self: {self.session}")
             self.session.merge(session)
 
     def validate_session(self) -> None:
