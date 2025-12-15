@@ -916,6 +916,42 @@ build_image() {
     docker build --build-arg GPU=$gpu -t "$name" .
 }
 
+dropbox_check_sync() {
+    if [[ ! -f "${HOME}/dropbox.py" ]]; then
+        print_error "You're missing the dropbox.py script. Please install from https://www.dropbox.com/install-linux"
+        exit 1
+    fi
+
+    if ! python3 ~/dropbox.py start; then
+        print_error "Failed to start Dropbox. Please check your Dropbox configuration and try again."
+        exit 1
+    fi
+
+    print_info "Checking Dropbox sync..."
+    while python3 ~/dropbox.py filestatus ./* | grep "sync"; do
+        print_info "Dropbox is still syncing in the current directory, and startup cannot proceed"
+        print_info "Waiting 1 second..."
+        sleep 1
+    done
+
+    while python3 ~/dropbox.py filestatus "${DROPBOX_DATA_DIR}"/* | grep "sync"; do
+        print_info "Dropbox is still syncing in the Dropbox data directory, and startup cannot proceed"
+        print_info "Waiting 1 second..."
+        sleep 1
+    done
+}
+
+dropbox_request_ownership() {
+    local docker_volumes_owner="${DROPBOX_DATA_DIR}/docker_volumes_owner"
+    
+    print_info "Taking ownership of database backing store"
+    echo "$(hostname)" > "${docker_volumes_owner}"
+
+    # Will loop until the lock is acquired
+    print_info "Acquiring database store lock"
+    python3 memmachine-dropbox.py lock --retry
+}
+
 # Main execution
 main() {
     echo "MemMachine Docker Startup Script"
@@ -935,6 +971,17 @@ main() {
 
 # Handle script arguments
 case "${1:-}" in
+    "sleep")
+        print_info "Putting MemMachine services to sleep..."
+        docker stop memmachine-postgres
+        docker stop memmachine-neo4j
+        while python3 ~/dropbox.py filestatus ${DROPBOX_DATA_DIR} | grep -q "sync"; do
+            print_info "Dropbox is still syncing, don't load on remote yet..."
+            sleep 1
+        done
+        print_success "Dropbox is synced! Go ahead and start on remote."
+        print_success ":)"
+        ;;
     "stop")
         print_info "Stopping MemMachine services..."
         $COMPOSE_CMD down

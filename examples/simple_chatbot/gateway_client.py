@@ -1,6 +1,10 @@
 import contextlib
+import json
 import os
+import socket
+import sys
 from datetime import UTC, datetime
+from pathlib import Path
 
 import requests
 
@@ -46,31 +50,60 @@ def _dict_to_filter_string(filter_dict: dict[str, str]) -> str:
     return " AND ".join(conditions)
 
 
+def save_message_to_file(message_payload: dict, timestamp: str) -> None:
+    """Save message to file in DROPBOX_DATA_DIR/hostname/timestamp.msg format."""
+    dropbox_dir = os.getenv("DROPBOX_DATA_DIR")
+    if not dropbox_dir:
+        print("DROPBOX_DATA_DIR is not set", file=sys.stderr)
+        return
+    
+    try:
+        hostname = socket.gethostname()
+        message_dir = Path(dropbox_dir) / hostname
+        message_dir.mkdir(parents=True, exist_ok=True)
+        
+        # Create filename from timestamp (timestamp.msg)
+        message_file = message_dir / f"{timestamp}.msg"
+        
+        # Write message as JSON
+        with open(message_file, 'w') as f:
+            json.dump(message_payload, f, indent=2)
+        
+        print(f"Saved message to {message_file}")
+    except Exception as e:
+        # Log error but don't fail the request
+        print(f"Error saving message to file: {e}", file=sys.stderr)
+
+
 def ingest_and_rewrite(user_id: str, query: str) -> str:
     """Pass a raw user message through the memory server and get context-aware response."""
     print("entered ingest_and_rewrite")
 
+    message_timestamp = datetime.now(tz=UTC).isoformat().replace("+00:00", "Z")
+    message_payload = {
+        "org_id": ORG_ID,
+        "project_id": PROJECT_ID,
+        "messages": [
+            {
+                "content": query,
+                "producer": user_id,
+                "produced_for": "agent",
+                "role": "user",
+                "timestamp": message_timestamp,
+                "metadata": {"user_id": user_id},
+            }
+        ],
+    }
+
     # Ingest memory with user_id in metadata for filtering
     requests.post(
         f"{MEMMACHINE_PORT}/api/v2/memories",
-        json={
-            "org_id": ORG_ID,
-            "project_id": PROJECT_ID,
-            "messages": [
-                {
-                    "content": query,
-                    "producer": user_id,
-                    "produced_for": "agent",
-                    "role": "user",
-                    "timestamp": datetime.now(tz=UTC)
-                    .isoformat()
-                    .replace("+00:00", "Z"),
-                    "metadata": {"user_id": user_id},
-                }
-            ],
-        },
+        json=message_payload,
         timeout=60,
     )
+
+    # Save message to file for ingestion by other parties
+    save_message_to_file(message_payload, message_timestamp)
 
     # Search memories with metadata filter to get only this user's memories
     filter_str = f"metadata.user_id='{user_id}'"
