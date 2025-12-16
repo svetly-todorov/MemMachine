@@ -9,19 +9,30 @@ INPUT="docker-compose.yml"
 
 mkdir -p docker_volumes/{postgres_data,neo4j_data,neo4j_logs,neo4j_import,neo4j_plugins,memmachine_logs}
 
+# Replace named volumes with bind mounts
+# Remove existing user: lines (postgres + neo4j only)
+# Insert correct user after container_name
+# Remove only the volumes: block, keep networks: block
 sed -i \
-  -e "s|postgres_data:/var/lib/postgresql/data|./docker_volumes/postgres_data:/var/lib/postgresql/data|g" \
-  -e "s|neo4j_data:/data|./docker_volumes/neo4j_data:/data|g" \
-  -e "s|neo4j_logs:/logs|./docker_volumes/neo4j_logs:/logs|g" \
-  -e "s|neo4j_import:/var/lib/neo4j/import|./docker_volumes/neo4j_import:/var/lib/neo4j/import|g" \
-  -e "s|neo4j_plugins:/plugins|./docker_volumes/neo4j_plugins:/plugins|g" \
-  -e "s|memmachine_logs:/tmp/memory_logs|./docker_volumes/memmachine_logs:/tmp/memory_logs|g" \
+  -e 's|^\(\s*-\s*\)postgres_data:|\1./docker_volumes/postgres_data:|' \
+  -e 's|^\(\s*-\s*\)neo4j_data:|\1./docker_volumes/neo4j_data:|' \
+  -e 's|^\(\s*-\s*\)neo4j_logs:|\1./docker_volumes/neo4j_logs:|' \
+  -e 's|^\(\s*-\s*\)neo4j_import:|\1./docker_volumes/neo4j_import:|' \
+  -e 's|^\(\s*-\s*\)neo4j_plugins:|\1./docker_volumes/neo4j_plugins:|' \
+  -e 's|^\(\s*-\s*\)memmachine_logs:|\1./docker_volumes/memmachine_logs:|' \
+  -e "/^  postgres:/,/^  [a-z]/{ /^    user:/d }" \
+  -e "/^  neo4j:/,/^  [a-z]/{ /^    user:/d }" \
   -e "/container_name: memmachine-postgres/a\\
     user: \"${UID_VAL}:${GID_VAL}\"" \
   -e "/container_name: memmachine-neo4j/a\\
     user: \"${UID_VAL}:${GID_VAL}\"" \
-  -e "/^volumes:/,\$d" \
+  -e '/^volumes:/,/^networks:/{
+        /^networks:/!d
+      }' \
   "$INPUT"
 
-echo "Wrote $OUTPUT"
+echo "Wrote to $INPUT"
+echo "Showing diff:"
+sleep 1
+git diff $INPUT
 
