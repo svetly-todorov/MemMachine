@@ -843,6 +843,29 @@ build_image() {
     docker build --build-arg GPU=$gpu -t "$name" .
 }
 
+dropbox_setup() {
+    print_info "Setting up Dropbox..."
+    python3 memmachine-dropbox.py run
+}
+
+dropbox_check_sync() {
+    if [ ! -f "~/dropbox.py" ]; then
+        print_error "You're missing the dropbox.py script. Please install from https://www.dropbox.com/install-linux"
+        exit 1
+    fi
+
+    print_info "Checking Dropbox sync..."
+    if python3 ~/dropbox.py filestatus ./* | grep "syncing"; then
+        print_info "Dropbox is still syncing in the current directory, and startup cannot proceed"
+        exit 1
+    fi
+}
+
+dropbox_teardown() {
+    print_info "Tearing down Dropbox..."
+    python3 memmachine-dropbox.py teardown
+}
+
 # Main execution
 main() {
     echo "MemMachine Docker Startup Script"
@@ -855,6 +878,8 @@ main() {
     set_provider_api_keys
     check_required_env
     check_required_config
+    dropbox_check_sync
+    dropbox_setup
     start_services
     wait_for_health
     show_service_info
@@ -869,6 +894,7 @@ case "${1:-}" in
         else
             docker compose down
         fi
+        dropbox_teardown
         print_success "Services stopped"
         ;;
     "restart")

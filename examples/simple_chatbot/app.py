@@ -250,21 +250,52 @@ def render_header() -> None:
     )
 
 
-def render_memory_status(memmachine_enabled: bool) -> None:
+def is_using_local_copy() -> bool:
+    """Check if docker_volumes_local is being used by checking docker-compose.yml."""
+    try:
+        # Search upwards until we encounter docker-compose.yml
+        compose_path = Path(__file__).parent.resolve()
+        while compose_path != Path("/"):
+            if (compose_path / "docker-compose.yml").exists():
+                break
+            compose_path = compose_path.parent
+        if compose_path == Path("/"):
+            print(f"# FAILED TO FIND docker-compose.yml before hitting root")
+            return False
+        if Path(compose_path / "docker-compose.yml").exists():
+            with open(compose_path / "docker-compose.yml", 'r', encoding='utf-8') as f:
+                content = f.read()
+                # Check if docker_volumes_local is referenced in the file
+                return "docker_volumes_local" in content
+        print(f"# ERROR CHECKING COMPOSE PATH: {compose_path}")
+        return False
+    except Exception as e:
+        print(f"# ERROR CHECKING LOCAL COPY with exception: {e}")
+        # If we can't check, assume not using local copy
+        return False
+
+
+def render_memory_status(memmachine_enabled: bool, local_copy: bool) -> None:
     """Render the memory status indicator."""
     status_emoji = "🧠" if memmachine_enabled else "⚪"
     status_text = "MemMachine Active" if memmachine_enabled else "No Memory Mode"
+    status_emoji_local_copy = "🚫" if local_copy else "🛜"
+    status_text_local_copy = "Using Local Database Copy" if local_copy else "Using Remote Database"
+    class_local_copy = "memory-status-text-local-copy" if local_copy else "memory-status-text-remote-copy"
     st.markdown(
         f"""
         <div class="memory-status-indicator">
             <span class="memory-status-text">
                 {status_emoji} <strong>{status_text}</strong>
             </span>
+            <div class="vertical-divider"></div>
+            <span class="{class_local_copy}">
+                {status_emoji_local_copy} <strong>{status_text_local_copy}</strong>
+            </span>
         </div>
         """,
         unsafe_allow_html=True,
     )
-
 
 def render_comparison_banner() -> None:
     """Render the comparison feature banner."""
@@ -828,8 +859,9 @@ def main() -> None:
             msg, persona_name, memmachine_enabled, compare_personas, show_rationale
         )
 
+    # Local copy indicator (if using docker_volumes_local)    
     # Memory status and chat history
-    render_memory_status(memmachine_enabled)
+    render_memory_status(memmachine_enabled, is_using_local_copy())
     render_chat_history()
 
 

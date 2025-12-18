@@ -26,9 +26,12 @@ except ImportError:
 
 # Configuration
 INPUT_FILE = "docker-compose.yml"
-LOCKFILE_BASE_PATH = "/Memverge Dropbox/svetly todorov/memmachine"
+# The current directory name should be here
+LOCKFILE_BASE_PATH = os.path.basename(os.getcwd())
 LOCKFOLDER_NAME = "docker_volumes_lockfolder"
-DROPBOX_LOCKFOLDER_PATH = f"{LOCKFILE_BASE_PATH}/{LOCKFOLDER_NAME}"
+LOCKFOLDER_PATH = f"./{LOCKFOLDER_NAME}"
+# Dropbox path for the lockfolder is relative to the root of my personal directory
+DROPBOX_LOCKFOLDER_PATH = f"/{LOCKFILE_BASE_PATH}/{LOCKFOLDER_NAME}"
 VOLUMES_DIR = "docker_volumes"
 VOLUMES_DIR_LOCAL = "docker_volumes_local"
 
@@ -46,6 +49,39 @@ VOLUME_SUBDIRS = [
 def get_user_ids() -> Tuple[int, int]:
     """Get current user UID and GID."""
     return os.getuid(), os.getgid()
+
+
+def check_dropbox_api_token() -> bool:
+    """
+    Check if the Dropbox API token is set.
+    """
+    return os.environ.get("DROPBOX_ACCESS_TOKEN") is not None
+
+
+def create_dropbox_lockfile() -> bool:
+    """
+    Create a file inside of the lockfolder.
+    """
+    with open(f"{LOCKFOLDER_PATH}/lockfile.txt", "w+") as file:
+        file.write(f"{socket.gethostname()}")
+    return True
+
+
+def check_dropbox_lockfile() -> bool:
+    """
+    Check if the lockfile exists and is owned by the current host.
+    """
+    if not os.path.exists(f"{LOCKFOLDER_PATH}/lockfile.txt"):
+        print(f"Error: lockfile not found: {f"{LOCKFOLDER_PATH}/lockfile.txt"}")
+        return False
+    try:
+        with open(f"{LOCKFOLDER_PATH}/lockfile.txt", "r") as file:
+            hostname = file.read()
+            print(f"Lockfile {f"{LOCKFOLDER_PATH}/lockfile.txt"} is owned by {hostname}")
+            return hostname == socket.gethostname()
+    except Exception as e:
+        print(f"Error checking lockfile: {e}")
+        return False
 
 
 def attempt_dropbox_lock() -> Tuple[bool, Optional[str]]:
@@ -99,6 +135,16 @@ def attempt_dropbox_lock() -> Tuple[bool, Optional[str]]:
         return False, f"Network error connecting to Dropbox API: {e}"
     except Exception as e:
         return False, f"Unexpected error during lock acquisition: {e}"
+
+
+def wait_for_dropbox_lock() -> bool:
+    """
+    Wait for the lockfolder to be created.
+    """
+    while not os.path.exists(LOCKFOLDER_PATH):
+        print(f"Waiting for lockfolder to appear locally at {LOCKFOLDER_PATH}...")
+        time.sleep(1)
+    return True
 
 
 def teardown_lock() -> bool:
@@ -308,7 +354,7 @@ def modify_docker_compose(input_file: str, volumes_path: str, uid: int, gid: int
 def show_git_diff(input_file: str) -> None:
     """Show git diff of the modified file."""
     try:
-        subprocess.run(['git', 'diff', input_file], check=False)
+        subprocess.run(['git', '-P', 'diff', input_file], check=False)
     except subprocess.CalledProcessError:
         print("Note: git diff failed (file may not be in git repository)")
     except FileNotFoundError:
@@ -329,10 +375,17 @@ def main():
     )
     
     args = parser.parse_args()
+
+    if not check_dropbox_api_token():
+        print("Error: DROPBOX_ACCESS_TOKEN environment variable not set. Set using 'export DROPBOX_ACCESS_TOKEN=<token>' and try again.")
+        sys.exit(1)
     
     # Handle teardown command
     if args.command == "teardown":
         print("Tearing down Dropbox lockfolder...")
+        if not check_dropbox_lockfile():
+            print("Error: lockfile not found, or not owned by the current host")
+            sys.exit(1)
         success = teardown_lock()
         sys.exit(0 if success else 1)
     
@@ -354,6 +407,10 @@ def main():
     if lock_acquired:
         volumes_path = VOLUMES_DIR
         print("Using Dropbox-synced volumes directory")
+        wait_for_dropbox_lock()
+        if not create_dropbox_lockfile():
+            print("Error: failed to create a file inside of the lockfolder")
+            sys.exit(1)
     else:
         print(f"Lock acquisition failed: {lock_error}")
         print("Falling back to local copy")
