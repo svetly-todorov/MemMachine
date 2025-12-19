@@ -865,7 +865,6 @@ dropbox_check_sync() {
         print_info "Waiting 1 second..."
         sleep 1
     done
-    fi
 
     while python3 ~/dropbox.py filestatus ${DROPBOX_DATA_DIR} | grep "sync"; do
         print_info "Dropbox is still syncing in the Dropbox data directory, and startup cannot proceed"
