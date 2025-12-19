@@ -849,7 +849,7 @@ dropbox_setup() {
 }
 
 dropbox_check_sync() {
-    if [ ! -f "~/dropbox.py" ]; then
+    if [[ ! -f "${HOME}/dropbox.py" ]]; then
         print_error "You're missing the dropbox.py script. Please install from https://www.dropbox.com/install-linux"
         exit 1
     fi

@@ -27,13 +27,12 @@ except ImportError:
 # Configuration
 INPUT_FILE = "docker-compose.yml"
 # The current directory name should be here
-LOCKFILE_BASE_PATH = os.path.basename(os.getcwd())
 LOCKFOLDER_NAME = "docker_volumes_lockfolder"
-LOCKFOLDER_PATH = f"./{LOCKFOLDER_NAME}"
+LOCKFOLDER_PATH = f"{os.getenv("DROPBOX_DATA_DIR")}/{LOCKFOLDER_NAME}"
 # Dropbox path for the lockfolder is relative to the root of my personal directory
-DROPBOX_LOCKFOLDER_PATH = f"/{LOCKFILE_BASE_PATH}/{LOCKFOLDER_NAME}"
-VOLUMES_DIR = "docker_volumes"
-VOLUMES_DIR_LOCAL = "docker_volumes_local"
+DROPBOX_LOCKFOLDER_PATH = f"/{LOCKFOLDER_NAME}"
+VOLUMES_DIR = f"{os.getenv("DROPBOX_DATA_DIR")}/docker_volumes"
+VOLUMES_DIR_LOCAL = "./docker_volumes_local"
 
 # Volume subdirectories to create
 VOLUME_SUBDIRS = [
@@ -49,6 +48,13 @@ VOLUME_SUBDIRS = [
 def get_user_ids() -> Tuple[int, int]:
     """Get current user UID and GID."""
     return os.getuid(), os.getgid()
+
+
+def check_dropbox_data_directory() -> bool:
+    """
+    Check if the Dropbox data directory is set.
+    """
+    return os.environ.get("DROPBOX_DATA_DIR") is not None
 
 
 def check_dropbox_api_token() -> bool:
@@ -268,12 +274,12 @@ def modify_docker_compose(input_file: str, volumes_path: str, uid: int, gid: int
         
         # Replace volume paths
         volume_replacements = {
-            'postgres_data': f'./{volumes_path}/postgres_data',
-            'neo4j_data': f'./{volumes_path}/neo4j_data',
-            'neo4j_logs': f'./{volumes_path}/neo4j_logs',
-            'neo4j_import': f'./{volumes_path}/neo4j_import',
-            'neo4j_plugins': f'./{volumes_path}/neo4j_plugins',
-            'memmachine_logs': f'./{volumes_path}/memmachine_logs',
+            'postgres_data': f'{volumes_path}/postgres_data',
+            'neo4j_data': f'{volumes_path}/neo4j_data',
+            'neo4j_logs': f'{volumes_path}/neo4j_logs',
+            'neo4j_import': f'{volumes_path}/neo4j_import',
+            'neo4j_plugins': f'{volumes_path}/neo4j_plugins',
+            'memmachine_logs': f'{volumes_path}/memmachine_logs',
         }
         
         for volume_name, volume_path in volume_replacements.items():
@@ -375,6 +381,10 @@ def main():
     )
     
     args = parser.parse_args()
+
+    if not check_dropbox_data_directory():
+        print("Error: DROPBOX_DATA_DIR environment variable not set. It should be the full path to the Dropbox directory where you want to host the postgres & neo4j files. Set using 'export DROPBOX_DATA_DIR=<path>' and try again.")
+        sys.exit(1)
 
     if not check_dropbox_api_token():
         print("Error: DROPBOX_ACCESS_TOKEN environment variable not set. Set using 'export DROPBOX_ACCESS_TOKEN=<token>' and try again.")
