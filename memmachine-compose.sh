@@ -860,10 +860,18 @@ dropbox_check_sync() {
     fi
 
     print_info "Checking Dropbox sync..."
-    if python3 ~/dropbox.py filestatus ./* | grep "syncing"; then
+    while python3 ~/dropbox.py filestatus ./* | grep "sync"; do
         print_info "Dropbox is still syncing in the current directory, and startup cannot proceed"
-        exit 1
+        print_info "Waiting 1 second..."
+        sleep 1
+    done
     fi
+
+    while python3 ~/dropbox.py filestatus ${DROPBOX_DATA_DIR} | grep "sync"; do
+        print_info "Dropbox is still syncing in the Dropbox data directory, and startup cannot proceed"
+        print_info "Waiting 1 second..."
+        sleep 1
+    done
 }
 
 dump_episodic_memories() {
@@ -879,7 +887,7 @@ dropbox_teardown_sequence() {
         print_info "Docker volumes are local; attempting to sync local storage to remote"
         # Try to acquire the lock folder
         python3 memmachine-dropbox.py lock
-        # Acquiring the lock folder failed if we're still using local storage
+        # If we're still using local storage, it must be that acquiring the lock folder failed
         if grep -q "docker_volumes_local" docker-compose.yml; then
             print_error "Failed to acquire Dropbox lock; exiting"
             return
