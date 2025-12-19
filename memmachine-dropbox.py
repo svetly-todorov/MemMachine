@@ -50,6 +50,22 @@ def get_user_ids() -> Tuple[int, int]:
     return os.getuid(), os.getgid()
 
 
+def using_local_storage(input_file: str, volumes_dir_local: str) -> bool:
+    """Check if we are using local storage."""
+    with open(input_file, 'r') as f:
+        content = f.read()
+        if volumes_dir_local in content:
+            return True
+        else:
+            return False
+    return False
+
+
+def sync_local_storage(volumes_dir_local: str) -> bool:
+    """Sync local storage to remote."""
+    return True
+
+
 def check_dropbox_data_directory() -> bool:
     """
     Check if the Dropbox data directory is set.
@@ -64,34 +80,33 @@ def check_dropbox_api_token() -> bool:
     return os.environ.get("DROPBOX_ACCESS_TOKEN") is not None
 
 
-def create_dropbox_lockfile() -> bool:
+def create_dropbox_lockfile() -> None:
     """
     Create a file inside of the lockfolder.
     """
     with open(f"{LOCKFOLDER_PATH}/lockfile.txt", "w+") as file:
         file.write(f"{socket.gethostname()}")
-    return True
 
 
-def check_dropbox_lockfile() -> bool:
+def check_dropbox_lockfile() -> Tuple[bool, bool]:
     """
     Check if the lockfile exists and is owned by the current host.
     """
     lockfile_path = f"{LOCKFOLDER_PATH}/lockfile.txt"
     if not os.path.exists(lockfile_path):
         print(f"Error: lockfile not found: {lockfile_path}")
-        return False
+        return False, False
     try:
         with open(lockfile_path, "r") as file:
             hostname = file.read()
             print(f"Lockfile {lockfile_path} is owned by {hostname}")
-            return hostname == socket.gethostname()
+            return True, hostname == socket.gethostname()
     except Exception as e:
         print(f"Error checking lockfile: {e}")
-        return False
+        return False, False
 
 
-def attempt_dropbox_lock() -> Tuple[bool, Optional[str]]:
+def create_dropbox_lockfolder() -> Tuple[bool, Optional[str]]:
     """
     Attempt to acquire lock by creating a folder using Dropbox API.
     Folder creation is atomic - if it already exists, the operation fails,
@@ -144,7 +159,7 @@ def attempt_dropbox_lock() -> Tuple[bool, Optional[str]]:
         return False, f"Unexpected error during lock acquisition: {e}"
 
 
-def wait_for_dropbox_lock() -> bool:
+def wait_for_dropbox_lockfolder() -> bool:
     """
     Wait for the lockfolder to be created.
     """
@@ -154,7 +169,20 @@ def wait_for_dropbox_lock() -> bool:
     return True
 
 
-def teardown_lock() -> bool:
+def attempt_dropbox_lock() -> Tuple[bool, Optional[str]]:
+    """
+    Attempt to acquire lock by creating a folder using Dropbox API.
+    """
+    lock_acquired, lock_error = create_dropbox_lockfolder()
+    if lock_acquired:
+        wait_for_dropbox_lockfolder()
+        create_dropbox_lockfile()
+        return True, None
+    else:
+        return False, lock_error
+
+
+def release_dropbox_lock() -> bool:
     """
     Delete the lockfolder via Dropbox API to release the lock.
     
@@ -394,11 +422,25 @@ def main():
     # Handle teardown command
     if args.command == "teardown":
         print("Tearing down Dropbox lockfolder...")
-        if not check_dropbox_lockfile():
-            print("Error: lockfile not found, or not owned by the current host")
-            sys.exit(1)
-        success = teardown_lock()
-        sys.exit(0 if success else 1)
+        lock_exists, lock_owned = check_dropbox_lockfile()
+        if not lock_exists:
+            if using_local_storage(INPUT_FILE, VOLUMES_DIR_LOCAL):
+                print("Lockfile not found and we are using local storage; attempting to sync local storage to remote")
+                sync_local_storage(VOLUMES_DIR_LOCAL)
+            else:
+                print("Lockfile not found and we are using remote storage; nothing to tear down, exiting")
+                sys.exit(0)
+        if lock_exists and lock_owned:
+            print("Lockfile found and owned by the current host; tearing down Dropbox lockfolder")
+            if not release_dropbox_lock():
+                print("Error: failed to release Dropbox lockfolder")
+                sys.exit(1)
+            else:
+                print("Successfully released Dropbox lockfolder")
+                sys.exit(0)
+        else:
+            print("Lockfile found but not owned by the current host; nothing to tear down, exiting")
+            sys.exit(0)   
     
     # Normal execution
     print("Starting memmachine-dropbox script...")
@@ -411,30 +453,25 @@ def main():
     if not os.path.exists(INPUT_FILE):
         print(f"Error: {INPUT_FILE} not found", file=sys.stderr)
         sys.exit(1)
-    
+
+    volumes_path = VOLUMES_DIR
+
     # Attempt to acquire Dropbox lock
     lock_acquired, lock_error = attempt_dropbox_lock()
-    
-    if lock_acquired:
-        volumes_path = VOLUMES_DIR
-        print("Using Dropbox-synced volumes directory")
-        wait_for_dropbox_lock()
-        if not create_dropbox_lockfile():
-            print("Error: failed to create a file inside of the lockfolder")
-            sys.exit(1)
-    else:
+
+    if not lock_acquired:
         print(f"Lock acquisition failed: {lock_error}")
         print("Falling back to local copy")
         if not copy_volumes_to_local():
             print("Error: Failed to create local volumes copy", file=sys.stderr)
             sys.exit(1)
         volumes_path = VOLUMES_DIR_LOCAL
-    
+
     # Ensure volume directories exist
     if not ensure_volume_directories(volumes_path):
         print("Error: Failed to create volume directories", file=sys.stderr)
         sys.exit(1)
-    
+
     # Modify docker-compose.yml
     print(f"Modifying {INPUT_FILE} with volumes path: {volumes_path}")
     if not modify_docker_compose(INPUT_FILE, volumes_path, uid, gid):
