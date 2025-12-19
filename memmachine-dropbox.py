@@ -77,13 +77,14 @@ def check_dropbox_lockfile() -> bool:
     """
     Check if the lockfile exists and is owned by the current host.
     """
-    if not os.path.exists(f"{LOCKFOLDER_PATH}/lockfile.txt"):
-        print(f"Error: lockfile not found: {f"{LOCKFOLDER_PATH}/lockfile.txt"}")
+    lockfile_path = f"{LOCKFOLDER_PATH}/lockfile.txt"
+    if not os.path.exists(lockfile_path):
+        print(f"Error: lockfile not found: {lockfile_path}")
         return False
     try:
-        with open(f"{LOCKFOLDER_PATH}/lockfile.txt", "r") as file:
+        with open(lockfile_path, "r") as file:
             hostname = file.read()
-            print(f"Lockfile {f"{LOCKFOLDER_PATH}/lockfile.txt"} is owned by {hostname}")
+            print(f"Lockfile {lockfile_path} is owned by {hostname}")
             return hostname == socket.gethostname()
     except Exception as e:
         print(f"Error checking lockfile: {e}")
