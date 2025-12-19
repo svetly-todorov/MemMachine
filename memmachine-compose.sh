@@ -845,7 +845,7 @@ build_image() {
 
 dropbox_setup() {
     print_info "Setting up Dropbox..."
-    python3 memmachine-dropbox.py run
+    python3 memmachine-dropbox.py lock
 }
 
 dropbox_check_sync() {
@@ -866,9 +866,46 @@ dropbox_check_sync() {
     fi
 }
 
-dropbox_teardown() {
+dump_episodic_memories() {
+    python3 memmachine-dropbox.py dump_episodic_memories .episodic.json
+}
+
+dropbox_teardown_sequence() {
     print_info "Tearing down Dropbox..."
+    # Delete the old lock folder, if we are responsible for it
     python3 memmachine-dropbox.py teardown
+    # Only attempt to sync if we were using local storage
+    if grep -q "docker_volumes_local" docker-compose.yml; then
+        print_info "Docker volumes are local; attempting to sync local storage to remote"
+        # Try to acquire the lock folder
+        python3 memmachine-dropbox.py lock
+        # Acquiring the lock folder failed if we're still using local storage
+        if grep -q "docker_volumes_local" docker-compose.yml; then
+            print_error "Failed to acquire Dropbox lock; exiting"
+            return
+        fi
+        # Start the services with remote storage
+        check_docker
+        check_env_file
+        check_config_file
+        set_provider_api_keys
+        check_required_env
+        check_required_config
+        dropbox_check_sync
+        start_services
+        wait_for_health
+        show_service_info
+        # Upload the dumped memories to the remote storage
+        python3 memmachine-dropbox.py upload_episodic_memories .episodic.json
+        # Tear down the services that are using the remote storage
+        if command -v docker-compose &> /dev/null; then
+            docker-compose down
+        else
+            docker compose down
+        fi
+        # Delete the lock folder, which we should currently own
+        python3 memmachine-dropbox.py teardown
+    fi
 }
 
 # Main execution
@@ -899,7 +936,7 @@ case "${1:-}" in
         else
             docker compose down
         fi
-        dropbox_teardown
+        dropbox_teardown_sequence
         print_success "Services stopped"
         ;;
     "restart")

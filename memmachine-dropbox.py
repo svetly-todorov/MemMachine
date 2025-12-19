@@ -50,22 +50,6 @@ def get_user_ids() -> Tuple[int, int]:
     return os.getuid(), os.getgid()
 
 
-def using_local_storage(input_file: str, volumes_dir_local: str) -> bool:
-    """Check if we are using local storage."""
-    with open(input_file, 'r') as f:
-        content = f.read()
-        if volumes_dir_local in content:
-            return True
-        else:
-            return False
-    return False
-
-
-def sync_local_storage(volumes_dir_local: str) -> bool:
-    """Sync local storage to remote."""
-    return True
-
-
 def check_dropbox_data_directory() -> bool:
     """
     Check if the Dropbox data directory is set.
@@ -396,6 +380,260 @@ def show_git_diff(input_file: str) -> None:
         print("Note: git not found in PATH")
 
 
+def dump_episodic_memories(output_file: str) -> bool:
+    """
+    Dump all episodic memories from the memory server to a JSON file.
+    
+    Args:
+        output_file: Path to the output JSON file
+        
+    Returns:
+        True if successful, False otherwise
+    """
+    base_url = "http://localhost:8080"
+    
+    try:
+        # Step 1: Get all projects
+        print(f"Fetching list of projects from {base_url}/api/v2/projects/list...")
+        projects_resp = requests.post(
+            f"{base_url}/api/v2/projects/list",
+            headers={"accept": "application/json"},
+            json={},
+            timeout=30
+        )
+        projects_resp.raise_for_status()
+        projects = projects_resp.json()
+        
+        if not isinstance(projects, list):
+            print(f"Error: Unexpected response format from projects/list: {projects}", file=sys.stderr)
+            return False
+        
+        print(f"Found {len(projects)} project(s)")
+        
+        # Structure to store all episodic memories organized by org_id and project_id
+        all_memories = {}
+        
+        # Step 2: For each project, get all episodic memories
+        for project in projects:
+            org_id = project.get("org_id")
+            project_id = project.get("project_id")
+            
+            if not org_id or not project_id:
+                print(f"Warning: Skipping project with missing org_id or project_id: {project}", file=sys.stderr)
+                continue
+            
+            print(f"Fetching episodic memories for org_id={org_id}, project_id={project_id}...")
+            
+            # Get episode count (optional, for progress tracking)
+            try:
+                count_resp = requests.post(
+                    f"{base_url}/api/v2/projects/episode_count/get",
+                    headers={"accept": "application/json"},
+                    json={
+                        "org_id": org_id,
+                        "project_id": project_id
+                    },
+                    timeout=30
+                )
+                count_resp.raise_for_status()
+                count_data = count_resp.json()
+                episode_count = count_data.get("count", 0)
+                print(f"  Found {episode_count} episode(s)")
+            except Exception as e:
+                print(f"  Warning: Could not get episode count: {e}")
+                episode_count = None
+            
+            # Fetch all episodes with pagination
+            all_episodes = []
+            page_size = 100
+            page_num = 0
+            
+            while True:
+                try:
+                    memories_resp = requests.post(
+                        f"{base_url}/api/v2/memories/list",
+                        headers={"accept": "application/json"},
+                        json={
+                            "org_id": org_id,
+                            "project_id": project_id,
+                            "page_size": page_size,
+                            "page_num": page_num,
+                            "filter": "",
+                            "type": "episodic"
+                        },
+                        timeout=60
+                    )
+                    memories_resp.raise_for_status()
+                    memories_data = memories_resp.json()
+                    
+                    content = memories_data.get("content", {})
+                    episodic_memory = content.get("episodic_memory", [])
+                    
+                    if not episodic_memory:
+                        break
+                    
+                    all_episodes.extend(episodic_memory)
+                    print(f"  Fetched page {page_num}: {len(episodic_memory)} episode(s)")
+                    
+                    # If we got fewer episodes than page_size, we've reached the end
+                    if len(episodic_memory) < page_size:
+                        break
+                    
+                    page_num += 1
+                    
+                except requests.exceptions.RequestException as e:
+                    print(f"  Error fetching page {page_num}: {e}", file=sys.stderr)
+                    break
+            
+            # Store episodes organized by org_id and project_id
+            if org_id not in all_memories:
+                all_memories[org_id] = {}
+            all_memories[org_id][project_id] = all_episodes
+            print(f"  Total episodes for {org_id}/{project_id}: {len(all_episodes)}")
+        
+        # Step 3: Write to file
+        print(f"Writing episodic memories to {output_file}...")
+        with open(output_file, 'w') as f:
+            json.dump(all_memories, f, indent=2)
+        
+        # Print summary
+        total_episodes = sum(
+            len(episodes)
+            for org_data in all_memories.values()
+            for episodes in org_data.values()
+        )
+        print(f"Successfully dumped {total_episodes} episodic memory episode(s) from {len(projects)} project(s) to {output_file}")
+        return True
+        
+    except requests.exceptions.RequestException as e:
+        print(f"Error communicating with memory server: {e}", file=sys.stderr)
+        return False
+    except IOError as e:
+        print(f"Error writing to file {output_file}: {e}", file=sys.stderr)
+        return False
+    except Exception as e:
+        print(f"Unexpected error during dump: {e}", file=sys.stderr)
+        return False
+
+
+def upload_episodic_memories(input_file: str) -> bool:
+    """
+    Upload episodic memories from a JSON file to the memory server.
+    
+    Args:
+        input_file: Path to the input JSON file
+        
+    Returns:
+        True if successful, False otherwise
+    """
+    base_url = "http://localhost:8080"
+    
+    try:
+        # Read the episodic memories file
+        print(f"Reading episodic memories from {input_file}...")
+        with open(input_file, 'r') as f:
+            all_memories = json.load(f)
+        
+        if not isinstance(all_memories, dict):
+            print(f"Error: Invalid file format. Expected a dictionary with org_id keys.", file=sys.stderr)
+            return False
+        
+        total_uploaded = 0
+        total_errors = 0
+        
+        # Iterate through each org_id and project_id
+        for org_id, projects in all_memories.items():
+            if not isinstance(projects, dict):
+                print(f"Warning: Invalid format for org_id '{org_id}'. Expected a dictionary with project_id keys.", file=sys.stderr)
+                continue
+            
+            for project_id, episodes in projects.items():
+                if not isinstance(episodes, list):
+                    print(f"Warning: Invalid format for {org_id}/{project_id}. Expected a list of episodes.", file=sys.stderr)
+                    continue
+                
+                if not episodes:
+                    print(f"Skipping {org_id}/{project_id}: no episodes to upload")
+                    continue
+                
+                print(f"Uploading {len(episodes)} episode(s) for org_id={org_id}, project_id={project_id}...")
+                
+                # Convert episodes to messages format expected by API
+                messages = []
+                for episode in episodes:
+                    if not isinstance(episode, dict):
+                        print(f"  Warning: Skipping invalid episode (not a dict): {episode}", file=sys.stderr)
+                        continue
+                    
+                    # Map episode fields to API message format
+                    message = {
+                        "content": episode.get("content", ""),
+                        "producer": episode.get("producer_id", ""),
+                        "produced_for": episode.get("produced_for_id", ""),
+                        "timestamp": episode.get("created_at", ""),
+                        "role": episode.get("producer_role", ""),
+                        "metadata": episode.get("metadata") if episode.get("metadata") is not None else {}
+                    }
+                    messages.append(message)
+                
+                if not messages:
+                    print(f"  Warning: No valid messages to upload for {org_id}/{project_id}")
+                    continue
+                
+                # Upload to memory server
+                try:
+                    upload_resp = requests.post(
+                        f"{base_url}/api/v2/memories",
+                        headers={"accept": "application/json"},
+                        json={
+                            "org_id": org_id,
+                            "project_id": project_id,
+                            "types": ["episodic"],
+                            "messages": messages
+                        },
+                        timeout=60
+                    )
+                    
+                    if upload_resp.status_code == 200:
+                        result = upload_resp.json()
+                        results = result.get("results", [])
+                        uploaded_count = len(results)
+                        total_uploaded += uploaded_count
+                        print(f"  Successfully uploaded {uploaded_count} episode(s)")
+                    else:
+                        print(f"  Error uploading to {org_id}/{project_id}: HTTP {upload_resp.status_code} - {upload_resp.text}", file=sys.stderr)
+                        total_errors += len(messages)
+                        
+                except requests.exceptions.RequestException as e:
+                    print(f"  Error uploading to {org_id}/{project_id}: {e}", file=sys.stderr)
+                    total_errors += len(messages)
+                except Exception as e:
+                    print(f"  Unexpected error uploading to {org_id}/{project_id}: {e}", file=sys.stderr)
+                    total_errors += len(messages)
+        
+        # Print summary
+        print(f"\nUpload complete: {total_uploaded} episode(s) uploaded successfully")
+        if total_errors > 0:
+            print(f"Warning: {total_errors} episode(s) failed to upload", file=sys.stderr)
+            # Continue processing but indicate partial failure
+            return False
+        
+        return True
+        
+    except FileNotFoundError:
+        print(f"Error: File not found: {input_file}", file=sys.stderr)
+        return False
+    except json.JSONDecodeError as e:
+        print(f"Error: Invalid JSON in file {input_file}: {e}", file=sys.stderr)
+        return False
+    except IOError as e:
+        print(f"Error reading file {input_file}: {e}", file=sys.stderr)
+        return False
+    except Exception as e:
+        print(f"Unexpected error during upload: {e}", file=sys.stderr)
+        return False
+
+
 def main():
     """Main execution function."""
     parser = argparse.ArgumentParser(
@@ -404,13 +642,39 @@ def main():
     parser.add_argument(
         "command",
         nargs="?",
-        default="run",
-        choices=["run", "teardown"],
-        help="Command to execute: 'run' (default) or 'teardown' to delete lockfolder"
+        default="lock",
+        choices=["lock", "teardown", "upload_episodic_memories", "dump_episodic_memories"],
+        help="Command to execute: 'lock' (default) or 'teardown' to delete lockfolder"
+    )
+    parser.add_argument(
+        "filename",
+        nargs="?",
+        help="Filename for dump_episodic_memories or upload_episodic_memories commands"
     )
     
     args = parser.parse_args()
-
+    
+    # Handle commands that don't require Dropbox setup
+    if args.command == "dump_episodic_memories":
+        if not args.filename:
+            print("Error: filename argument required for dump_episodic_memories", file=sys.stderr)
+            sys.exit(1)
+        print("Dumping episodic memories to local file...")
+        if not dump_episodic_memories(args.filename):
+            sys.exit(1)
+        sys.exit(0)
+    
+    if args.command == "upload_episodic_memories":
+        if not args.filename:
+            print("Error: filename argument required for upload_episodic_memories", file=sys.stderr)
+            sys.exit(1)
+        # Upload might need Dropbox, but check later in the function
+        print("Uploading episodic memories to Dropbox...")
+        if not upload_episodic_memories(args.filename):
+            sys.exit(1)
+        sys.exit(0)
+    
+    # Commands below require Dropbox setup
     if not check_dropbox_data_directory():
         print("Error: DROPBOX_DATA_DIR environment variable not set. It should be the full path to the Dropbox directory where you want to host the postgres & neo4j files. Set using 'export DROPBOX_DATA_DIR=<path>' and try again.")
         sys.exit(1)
@@ -419,17 +683,9 @@ def main():
         print("Error: DROPBOX_ACCESS_TOKEN environment variable not set. Set using 'export DROPBOX_ACCESS_TOKEN=<token>' and try again.")
         sys.exit(1)
     
-    # Handle teardown command
     if args.command == "teardown":
         print("Tearing down Dropbox lockfolder...")
         lock_exists, lock_owned = check_dropbox_lockfile()
-        if not lock_exists:
-            if using_local_storage(INPUT_FILE, VOLUMES_DIR_LOCAL):
-                print("Lockfile not found and we are using local storage; attempting to sync local storage to remote")
-                sync_local_storage(VOLUMES_DIR_LOCAL)
-            else:
-                print("Lockfile not found and we are using remote storage; nothing to tear down, exiting")
-                sys.exit(0)
         if lock_exists and lock_owned:
             print("Lockfile found and owned by the current host; tearing down Dropbox lockfolder")
             if not release_dropbox_lock():
