@@ -854,6 +854,11 @@ dropbox_check_sync() {
         exit 1
     fi
 
+    if ! python3 ~/dropbox.py start; then
+        print_error "Failed to start Dropbox. Please check your Dropbox configuration and try again."
+        exit 1
+    fi
+
     print_info "Checking Dropbox sync..."
     if python3 ~/dropbox.py filestatus ./* | grep "syncing"; then
         print_info "Dropbox is still syncing in the current directory, and startup cannot proceed"
