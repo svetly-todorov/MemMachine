@@ -28,10 +28,10 @@ except ImportError:
 INPUT_FILE = "docker-compose.yml"
 # The current directory name should be here
 LOCKFOLDER_NAME = "docker_volumes_lockfolder"
-LOCKFOLDER_PATH = f"{os.getenv("DROPBOX_DATA_DIR")}/{LOCKFOLDER_NAME}"
+LOCKFOLDER_PATH = f"{os.getenv('DROPBOX_DATA_DIR')}/{LOCKFOLDER_NAME}"
 # Dropbox path for the lockfolder is relative to the root of my personal directory
 DROPBOX_LOCKFOLDER_PATH = f"/{LOCKFOLDER_NAME}"
-VOLUMES_DIR = f"{os.getenv("DROPBOX_DATA_DIR")}/docker_volumes"
+VOLUMES_DIR = f"{os.getenv('DROPBOX_DATA_DIR')}/docker_volumes"
 VOLUMES_DIR_LOCAL = "./docker_volumes_local"
 
 # Volume subdirectories to create
