@@ -301,7 +301,7 @@ def modify_docker_compose(input_file: str, volumes_path: str, uid: int, gid: int
         
         for volume_name, volume_path in volume_replacements.items():
             # Pattern: lines starting with spaces, dash, space, then volume_name:
-            pattern = rf'^(\s+-\s+)([A-Za-z0-9\._\/]*{re.escape(volume_name)}):'
+            pattern = rf'^(\s+-\s+)([A-Za-z0-9\ \._\/]*{re.escape(volume_name)}):'
             replacement = rf'\1{volume_path}:'
             content = re.sub(pattern, replacement, content, flags=re.MULTILINE)
         
