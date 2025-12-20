@@ -937,12 +937,15 @@ main() {
 # Handle script arguments
 case "${1:-}" in
     "stop")
+        print_info "Dumping episodic memories..."
+        dump_episodic_memories
         print_info "Stopping MemMachine services..."
         if command -v docker-compose &> /dev/null; then
             docker-compose down
         else
             docker compose down
         fi
+        print_info "Tearing down Dropbox (including local storage sync)..."
         dropbox_teardown_sequence
         print_success "Services stopped"
         ;;
