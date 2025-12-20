@@ -884,13 +884,13 @@ dropbox_teardown_sequence() {
     # Only attempt to sync if we were using local storage
     if grep -q "docker_volumes_local" docker-compose.yml; then
         print_info "Docker volumes are local; attempting to sync local storage to remote"
-        # Try to acquire the lock folder
-        python3 memmachine-dropbox.py lock
-        # If we're still using local storage, it must be that acquiring the lock folder failed
-        if grep -q "docker_volumes_local" docker-compose.yml; then
-            print_error "Failed to acquire Dropbox lock; exiting"
-            return
-        fi
+        # Try to acquire the lock folder in a loop;
+        # we know that we're using local storage if docker_volumes_local is in docker-compose.yml
+        while grep -q "docker_volumes_local" docker-compose.yml; do
+            print_info "Dropbox volumes are still local; waiting for lock..."
+            python3 memmachine-dropbox.py lock
+            sleep 1
+        done
         # Start the services with remote storage
         check_docker
         check_env_file
