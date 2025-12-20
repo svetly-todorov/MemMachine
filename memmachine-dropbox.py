@@ -162,12 +162,12 @@ def attempt_dropbox_lock() -> Tuple[bool, Optional[str]]:
         wait_for_dropbox_lockfolder()
         create_dropbox_lockfile()
         return True, None
-    lock_exists, lock_hostname = check_dropbox_lockfile()
+    lock_exists, lock_held_by_me = check_dropbox_lockfile()
     if not lock_exists:
         return False, f"Lock folder already exists - lock file does not exist"
-    if lock_hostname != socket.gethostname():
-        return False, f"Lock folder already exists - lock is held by {lock_hostname}"
-    print(f"Lock folder already exists and is held by current host {lock_hostname}")
+    if not lock_held_by_me:
+        return False, f"Lock folder already exists - lock is held by another host"
+    print(f"Lock folder already exists and is held by current host")
     return True, None
 
 def release_dropbox_lock() -> bool:
@@ -689,8 +689,8 @@ def main():
     
     if args.command == "teardown":
         print("Tearing down Dropbox lockfolder...")
-        lock_exists, lock_owned = check_dropbox_lockfile()
-        if lock_exists and lock_owned:
+        lock_exists, lock_held_by_me = check_dropbox_lockfile()
+        if lock_exists and lock_held_by_me:
             print("Lockfile found and owned by the current host; tearing down Dropbox lockfolder")
             if not release_dropbox_lock():
                 print("Error: failed to release Dropbox lockfolder")
