@@ -887,9 +887,9 @@ dropbox_teardown_sequence() {
         # Try to acquire the lock folder in a loop;
         # we know that we're using local storage if docker_volumes_local is in docker-compose.yml
         while grep -q "docker_volumes_local" docker-compose.yml; do
-            print_info "Dropbox volumes are still local; waiting for lock..."
             python3 memmachine-dropbox.py lock
-            sleep 1
+            print_warning "Dropbox volumes are still local; waiting for lock..."
+            sleep 4
         done
         # Start the services with remote storage
         check_docker

@@ -162,6 +162,8 @@ def attempt_dropbox_lock() -> Tuple[bool, Optional[str]]:
         wait_for_dropbox_lockfolder()
         create_dropbox_lockfile()
         return True, None
+    if not lock_acquired:
+        print(f"Error: {lock_error}")
     lock_exists, lock_held_by_me = check_dropbox_lockfile()
     if not lock_exists:
         return False, f"Lock folder already exists - lock file does not exist"
