@@ -872,7 +872,7 @@ dropbox_request_ownership() {
     local docker_volumes_owner="${DROPBOX_DATA_DIR}/docker_volumes_owner"
     
     print_info "Taking ownership of database backing store"
-    echo "$(hostname)" > $docker_volumes_owner
+    echo "$(hostname)" > "${docker_volumes_owner}"
 
     # Will loop until the lock is acquired
     print_info "Acquiring database store lock"

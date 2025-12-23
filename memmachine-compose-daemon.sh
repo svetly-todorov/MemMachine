@@ -21,12 +21,11 @@ main() {
         break
     done
 
-    lock_owner="$(<"${DROPBOX_VOLUMES_LOCKFILE}")"
-    volume_requester="$(<"${DROPBOX_VOLUMES_REQUESTER}")"
-
     echo "Watching ${DROPBOX_VOLUMES_REQUESTER} and ${DROPBOX_VOLUMES_LOCKFILE}."
 
     while true; do
+        lock_owner="$(<"${DROPBOX_VOLUMES_LOCKFILE}")"
+        volume_requester="$(<"${DROPBOX_VOLUMES_REQUESTER}")"
         if [[ "${volume_requester}" != "$(hostname)" ]]; then
             if [[ "${lock_owner}" == "$(hostname)" ]]; then
                 echo ""
