@@ -868,6 +868,17 @@ dropbox_check_sync() {
     done
 }
 
+dropbox_request_ownership() {
+    local docker_volumes_owner="${DROPBOX_DATA_DIR}/docker_volumes_owner"
+    
+    print_info "Taking ownership of database backing store"
+    echo "$(hostname)" > $docker_volumes_owner
+
+    # Will loop until the lock is acquired
+    print_info "Acquiring database store lock"
+    python3 memmachine-dropbox.py lock --retry
+}
+
 # Main execution
 main() {
     echo "MemMachine Docker Startup Script"
@@ -880,7 +891,8 @@ main() {
     set_provider_api_keys
     check_required_env
     check_required_config
-    # dropbox_check_sync
+    dropbox_check_sync
+    dropbox_request_ownership
     start_services
     wait_for_health
     show_service_info
@@ -888,6 +900,17 @@ main() {
 
 # Handle script arguments
 case "${1:-}" in
+    "sleep")
+        print_info "Putting MemMachine services to sleep..."
+        docker stop memmachine-postgres
+        docker stop memmachine-neo4j
+        while python3 ~/dropbox.py filestatus ${DROPBOX_DATA_DIR} | grep -q "sync"; do
+            print_info "Dropbox is still syncing, don't load on remote yet..."
+            sleep 1
+        done
+        print_success "Dropbox is synced! Go ahead and start on remote."
+        print_success ":)"
+        ;;
     "stop")
         print_info "Stopping MemMachine services..."
         if command -v docker-compose &> /dev/null; then

@@ -215,6 +215,9 @@ def release_dropbox_lock() -> bool:
             except (ValueError, KeyError):
                 pass
             print(f"Error deleting lockfolder (status {response.status_code}): {error_msg}", file=sys.stderr)
+            if "expired_access_token" in error_msg:
+                print("Please refresh your Dropbox API token and try again.")
+                sys.exit(1)
             return False
             
     except requests.exceptions.RequestException as e:
@@ -395,13 +398,13 @@ def main():
         "command",
         nargs="?",
         default="lock",
-        choices=["lock", "teardown", "upload_episodic_memories", "dump_episodic_memories"],
+        choices=["lock", "teardown"],
         help="Command to execute: 'lock' (default) or 'teardown' to delete lockfolder"
     )
     parser.add_argument(
-        "filename",
-        nargs="?",
-        help="Filename for dump_episodic_memories or upload_episodic_memories commands"
+        "--retry",
+        action="store_true",
+        help="Retry if lockfile is not obtained on the first attempt (for lock command)"
     )
     
     args = parser.parse_args()
@@ -414,7 +417,22 @@ def main():
     if not check_dropbox_api_token():
         print("Error: DROPBOX_ACCESS_TOKEN environment variable not set. Set using 'export DROPBOX_ACCESS_TOKEN=<token>' and try again.")
         sys.exit(1)
-    
+
+    if args.command == "teardown":
+        print("Tearing down Dropbox lockfolder...")
+        lock_exists, lock_held_by_me = check_dropbox_lockfile()
+        if lock_exists and lock_held_by_me:
+            print("Lockfile found and owned by the current host; tearing down Dropbox lockfolder")
+            if not release_dropbox_lock():
+                print("Error: failed to release Dropbox lockfolder")
+                sys.exit(1)
+            else:
+                print("Successfully released Dropbox lockfolder")
+                sys.exit(0)
+        else:
+            print("Lockfile found but not owned by the current host; nothing to tear down, exiting")
+            sys.exit(0)
+
     # Normal execution
     print("Starting memmachine-dropbox script...")
     
@@ -428,6 +446,25 @@ def main():
         sys.exit(1)
 
     volumes_path = VOLUMES_DIR
+
+    # Attempt to acquire Dropbox lock, retry if needed
+    while True:
+        lock_acquired, lock_error = attempt_dropbox_lock()
+
+        if not lock_acquired and args.retry:
+            print(f"Lock acquisition failed: {lock_error}, retrying...")
+            time.sleep(1)
+            continue
+
+        if not lock_acquired:
+            print(f"Lock acquisition failed: {lock_error}")
+            print("Falling back to local copy")
+            if not copy_volumes_to_local():
+                print("Error: Failed to create local volumes copy", file=sys.stderr)
+                sys.exit(1)
+            volumes_path = VOLUMES_DIR_LOCAL
+
+        break
 
     # Ensure volume directories exist
     if not ensure_volume_directories(volumes_path):
