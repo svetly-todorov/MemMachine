@@ -13,12 +13,11 @@ main() {
             sleep 1
             continue
         fi
-        echo "${DROPBOX_VOLUMES_LOCKFILE} exists."
         if [[ ! -f "${DROPBOX_VOLUMES_REQUESTER}" ]]; then
             sleep 1
             continue
         fi
-        echo "${DROPBOX_VOLUMES_REQUESTER} exists."
+        echo "${DROPBOX_VOLUMES_LOCKFILE} exists and ${DROPBOX_VOLUMES_REQUESTER} exists."
         break
     done
 
