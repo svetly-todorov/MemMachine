@@ -38,9 +38,9 @@ main() {
     done
 
     docker stop memmachine-postgres
-    # docker stop memmachine-neo4j
+    docker stop memmachine-neo4j
 
-    while python3 ~/dropbox.py filestatus ${DROPBOX_DATA_DIR} | grep -q "sync"; do
+    while python3 ~/dropbox.py filestatus "${DROPBOX_DATA_DIR}"/* | grep -q "sync"; do
         echo "Dropbox is still syncing, don't load on remote yet..."
         sleep 1
     done
