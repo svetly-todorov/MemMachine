@@ -843,11 +843,6 @@ build_image() {
     docker build --build-arg GPU=$gpu -t "$name" .
 }
 
-dropbox_setup() {
-    print_info "Setting up Dropbox..."
-    python3 memmachine-dropbox.py lock
-}
-
 dropbox_check_sync() {
     if [[ ! -f "${HOME}/dropbox.py" ]]; then
         print_error "You're missing the dropbox.py script. Please install from https://www.dropbox.com/install-linux"
@@ -873,48 +868,6 @@ dropbox_check_sync() {
     done
 }
 
-dump_episodic_memories() {
-    python3 memmachine-dropbox.py dump_episodic_memories .episodic.json
-}
-
-dropbox_teardown_sequence() {
-    print_info "Tearing down Dropbox..."
-    # Delete the old lock folder, if we are responsible for it
-    python3 memmachine-dropbox.py teardown
-    # Only attempt to sync if we were using local storage
-    if grep -q "docker_volumes_local" docker-compose.yml; then
-        print_info "Docker volumes are local; attempting to sync local storage to remote"
-        # Try to acquire the lock folder in a loop;
-        # we know that we're using local storage if docker_volumes_local is in docker-compose.yml
-        while grep -q "docker_volumes_local" docker-compose.yml; do
-            python3 memmachine-dropbox.py lock
-            print_warning "Dropbox volumes are still local; waiting for lock..."
-            sleep 4
-        done
-        # Start the services with remote storage
-        check_docker
-        check_env_file
-        check_config_file
-        set_provider_api_keys
-        check_required_env
-        check_required_config
-        dropbox_check_sync
-        start_services
-        wait_for_health
-        show_service_info
-        # Upload the dumped memories to the remote storage
-        python3 memmachine-dropbox.py upload_episodic_memories .episodic.json
-        # Tear down the services that are using the remote storage
-        if command -v docker-compose &> /dev/null; then
-            docker-compose down
-        else
-            docker compose down
-        fi
-        # Delete the lock folder, which we should currently own
-        python3 memmachine-dropbox.py teardown
-    fi
-}
-
 # Main execution
 main() {
     echo "MemMachine Docker Startup Script"
@@ -927,8 +880,7 @@ main() {
     set_provider_api_keys
     check_required_env
     check_required_config
-    dropbox_check_sync
-    dropbox_setup
+    # dropbox_check_sync
     start_services
     wait_for_health
     show_service_info
@@ -937,16 +889,12 @@ main() {
 # Handle script arguments
 case "${1:-}" in
     "stop")
-        print_info "Dumping episodic memories..."
-        dump_episodic_memories
         print_info "Stopping MemMachine services..."
         if command -v docker-compose &> /dev/null; then
             docker-compose down
         else
             docker compose down
         fi
-        print_info "Tearing down Dropbox (including local storage sync)..."
-        dropbox_teardown_sequence
         print_success "Services stopped"
         ;;
     "restart")
