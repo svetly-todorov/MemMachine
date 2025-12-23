@@ -34,7 +34,6 @@ main() {
                 break
             fi
         fi
-        printf "."
         sleep 1
     done
 
