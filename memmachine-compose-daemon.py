@@ -185,18 +185,9 @@ def update_state_file_with_new_hostnames(
         
         # If hostname is not in state, add it
         if hostname not in state:
-            host_dir = dropbox_dir / hostname
-            # Get the earliest timestamp from existing .msg files
-            # This ensures we process all existing messages from this hostname
-            earliest_timestamp = get_earliest_timestamp_from_hostname_dir(host_dir)
-            
-            if earliest_timestamp:
-                state[hostname] = earliest_timestamp
-                print(f"Added new hostname '{hostname}' to state file with timestamp {earliest_timestamp} (will process all messages)")
-            else:
-                # No .msg files yet, use an early timestamp (epoch) so we'll process future messages
-                state[hostname] = "1970-01-01T00:00:00.000Z"
-                print(f"Added new hostname '{hostname}' to state file with default timestamp (no .msg files found)")
+            # Use an early timestamp (epoch) so we'll process future messages
+            state[hostname] = "1970-01-01T00:00:00.000Z"
+            print(f"Added new hostname '{hostname}' to state file with default timestamp (no .msg files found)")
             updated = True
     
     # Save updated state file if changes were made
