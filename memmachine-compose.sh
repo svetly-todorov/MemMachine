@@ -891,8 +891,6 @@ main() {
     set_provider_api_keys
     check_required_env
     check_required_config
-    dropbox_check_sync
-    dropbox_request_ownership
     start_services
     wait_for_health
     show_service_info
