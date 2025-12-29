@@ -11,7 +11,7 @@ import socket
 import time
 from datetime import datetime
 from pathlib import Path
-from typing import Dict
+from typing import Dict, List, Optional
 
 try:
     import requests
@@ -118,6 +118,99 @@ def forward_message(msg_file: Path, api_url: str) -> bool:
         return False
 
 
+def get_earliest_timestamp_from_hostname_dir(host_dir: Path) -> Optional[str]:
+    """Get the earliest timestamp from .msg files in a hostname directory."""
+    msg_files = list(host_dir.glob("*.msg"))
+    if not msg_files:
+        return None
+    
+    earliest_timestamp = None
+    for msg_file in msg_files:
+        file_timestamp = extract_timestamp_from_filename(msg_file)
+        # If earliest is None, or if file_timestamp is earlier than earliest (i.e., earliest > file)
+        if earliest_timestamp is None or compare_timestamps(earliest_timestamp, file_timestamp):
+            earliest_timestamp = file_timestamp
+    
+    return earliest_timestamp
+
+
+def discover_hostname_directories(dropbox_dir: Path, current_hostname: str) -> List[str]:
+    """Discover hostname directories in the dropbox directory."""
+    hostnames = []
+    
+    # Directories to exclude (non-hostname directories)
+    exclude_dirs = {
+        "docker_volumes_lockfolder",
+        "docker_volumes",
+    }
+    
+    if not dropbox_dir.exists() or not dropbox_dir.is_dir():
+        return hostnames
+    
+    for item in dropbox_dir.iterdir():
+        # Skip if not a directory
+        if not item.is_dir():
+            continue
+        
+        # Skip excluded directories
+        if item.name in exclude_dirs:
+            continue
+        
+        # Skip if it's a state file (shouldn't be a directory, but just in case)
+        if item.name.endswith('.state'):
+            continue
+        
+        # Consider it a hostname directory
+        hostnames.append(item.name)
+    
+    return hostnames
+
+
+def update_state_file_with_new_hostnames(
+    state_file: Path,
+    dropbox_dir: Path,
+    current_hostname: str
+) -> Dict[str, str]:
+    """Update state file with any new hostname directories found."""
+    state = load_state_file(state_file)
+    
+    # Discover all hostname directories
+    discovered_hostnames = discover_hostname_directories(dropbox_dir, current_hostname)
+    
+    updated = False
+    for hostname in discovered_hostnames:
+        # Skip current hostname
+        if hostname == current_hostname:
+            continue
+        
+        # If hostname is not in state, add it
+        if hostname not in state:
+            host_dir = dropbox_dir / hostname
+            # Get the earliest timestamp from existing .msg files
+            # This ensures we process all existing messages from this hostname
+            earliest_timestamp = get_earliest_timestamp_from_hostname_dir(host_dir)
+            
+            if earliest_timestamp:
+                state[hostname] = earliest_timestamp
+                print(f"Added new hostname '{hostname}' to state file with timestamp {earliest_timestamp} (will process all messages)")
+            else:
+                # No .msg files yet, use an early timestamp (epoch) so we'll process future messages
+                state[hostname] = "1970-01-01T00:00:00.000Z"
+                print(f"Added new hostname '{hostname}' to state file with default timestamp (no .msg files found)")
+            updated = True
+    
+    # Save updated state file if changes were made
+    if updated:
+        try:
+            with open(state_file, 'w') as f:
+                json.dump(state, f, indent=2)
+            print(f"Updated state file: {state_file}")
+        except Exception as e:
+            print(f"Error: Failed to save state file: {e}", file=sys.stderr)
+    
+    return state
+
+
 def process_hostname_messages(
     remote_hostname: str,
     last_timestamp: str,
@@ -161,8 +254,8 @@ def main() -> None:
     print(f"State file: {state_file}")
     print(f"Current hostname: {current_hostname}")
     
-    # Load state file
-    state = load_state_file(state_file)
+    # Update state file with any new hostname directories discovered
+    state = update_state_file_with_new_hostnames(state_file, dropbox_path, current_hostname)
     
     if not state:
         print("No hostnames found in state file")
