@@ -279,9 +279,6 @@ def render_memory_status(memmachine_enabled: bool, local_copy: bool) -> None:
     """Render the memory status indicator."""
     status_emoji = "🧠" if memmachine_enabled else "⚪"
     status_text = "MemMachine Active" if memmachine_enabled else "No Memory Mode"
-    status_emoji_local_copy = "🚫" if local_copy else "🛜"
-    status_text_local_copy = "Using Local Database Copy" if local_copy else "Using Remote Database"
-    class_local_copy = "memory-status-text-local-copy" if local_copy else "memory-status-text-remote-copy"
     st.markdown(
         f"""
         <div class="memory-status-indicator">
@@ -289,9 +286,6 @@ def render_memory_status(memmachine_enabled: bool, local_copy: bool) -> None:
                 {status_emoji} <strong>{status_text}</strong>
             </span>
             <div class="vertical-divider"></div>
-            <span class="{class_local_copy}">
-                {status_emoji_local_copy} <strong>{status_text_local_copy}</strong>
-            </span>
         </div>
         """,
         unsafe_allow_html=True,
