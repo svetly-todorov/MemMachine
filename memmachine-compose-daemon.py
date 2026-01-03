@@ -5,9 +5,12 @@ to the local memmachine API instance.
 """
 
 import os
+from os import listdir
+from os.path import isdir, join
 import sys
 import json
 import socket
+import threading
 import time
 from datetime import datetime
 from pathlib import Path
@@ -23,7 +26,6 @@ except ImportError:
 # Configuration
 API_URL = "http://localhost:8080/api/v2/memories"
 CHECK_INTERVAL = 10  # seconds
-
 
 def get_state_file_path() -> Path:
     """Get the path to the state file based on current hostname."""
@@ -118,97 +120,102 @@ def forward_message(msg_file: Path, api_url: str) -> bool:
         return False
 
 
-def get_earliest_timestamp_from_hostname_dir(host_dir: Path) -> Optional[str]:
-    """Get the earliest timestamp from .msg files in a hostname directory."""
-    msg_files = list(host_dir.glob("*.msg"))
-    if not msg_files:
+# def update_state_file_with_new_hostnames(
+#     state_file: Path,
+#     dropbox_dir: Path,
+#     current_hostname: str
+# ) -> Dict[str, str]:
+#     """Update state file with any new hostname directories found."""
+#     state = load_state_file(state_file)
+    
+#     # Discover all hostname directories
+#     discovered_hostnames = discover_hostname_directories(dropbox_dir, current_hostname)
+    
+#     updated = False
+#     for hostname in discovered_hostnames:
+#         # Skip current hostname
+#         if hostname == current_hostname:
+#             continue
+        
+#         # If hostname is not in state, add it
+#         if hostname not in state:
+#             # Use an early timestamp (epoch) so we'll process future messages
+#             state[hostname] = "1970-01-01T00:00:00.000Z"
+#             print(f"Added new hostname '{hostname}' to state file with default timestamp (no .msg files found)")
+#             updated = True
+    
+#     # Save updated state file if changes were made
+#     if updated:
+#         return dump_to_state_file(state, state_file)
+    
+#     return state
+
+
+def get_latest_cursor(path: Path) -> str:
+    """Get the latest cursor for the path. Path is relative to the root of the dropbox directory."""
+    strpath = str(path)
+    url = 'https://api.dropboxapi.com/2/files/list_folder/get_latest_cursor'
+    data = json.dumps({
+        "include_deleted": False,
+        "include_has_explicit_shared_members": False,
+        "include_media_info": False,
+        "include_mounted_folders": True,
+        "include_non_downloadable_files": True,
+        "path": f"/{strpath}",
+        "recursive": False
+    })
+    response = requests.post(url, data=data, headers={'Authorization': f'Bearer {os.getenv("DROPBOX_ACCESS_TOKEN")}', 'Content-Type': 'application/json'})
+    if response.status_code != 200:
+        print(f"Error: Failed to get latest cursor for /{strpath}: {response.status_code} with error: {response.text}", file=sys.stderr)
         return None
-    
-    earliest_timestamp = None
-    for msg_file in msg_files:
-        file_timestamp = extract_timestamp_from_filename(msg_file)
-        # If earliest is None, or if file_timestamp is earlier than earliest (i.e., earliest > file)
-        if earliest_timestamp is None or compare_timestamps(earliest_timestamp, file_timestamp):
-            earliest_timestamp = file_timestamp
-    
-    return earliest_timestamp
+    response_json = response.json()
+    if 'cursor' not in response_json:
+        print(f"Error: Failed to get latest cursor for /{strpath}: {response_json}", file=sys.stderr)
+        return None
+    return response_json['cursor']
 
 
-def discover_hostname_directories(dropbox_dir: Path, current_hostname: str) -> List[str]:
-    """Discover hostname directories in the dropbox directory."""
-    hostnames = []
-    
-    # Directories to exclude (non-hostname directories)
-    exclude_dirs = {
-        "docker_volumes_lockfolder",
-        "docker_volumes",
-    }
-    
-    if not dropbox_dir.exists() or not dropbox_dir.is_dir():
-        return hostnames
-    
-    for item in dropbox_dir.iterdir():
-        # Skip if not a directory
-        if not item.is_dir():
-            continue
-        
-        # Skip excluded directories
-        if item.name in exclude_dirs:
-            continue
-        
-        # Skip if it's a state file (shouldn't be a directory, but just in case)
-        if item.name.endswith('.state'):
-            continue
-        
-        # Consider it a hostname directory
-        hostnames.append(item.name)
-    
-    return hostnames
+def longpoll(path: Path) -> None:
+    """Long poll for new subdirectories under path."""
+
+    longpoll_timeout = 30
+    reset = True
+    cursor = None
+
+    print(f"Long polling for changes at /{str(path)}")
+
+    while True:
+        if reset:
+            cursor = get_latest_cursor(path)
+            if cursor is None:
+                print(f"Error: Failed to get latest cursor for {path}", file=sys.stderr)
+                return
+
+        url = 'https://api.dropboxapi.com/2/files/list_folder/longpoll'
+        data = json.dumps({
+            "cursor": cursor,
+            "timeout": longpoll_timeout
+        })
+        response = requests.post(url, data=data, headers={'Content-Type': 'application/json'})
+        if response.status_code == 200:
+            response_json = response.json()
+            if 'changes' in response_json:
+                if response_json['changes'] == True:
+                    print(f"Changes found at {path}, exiting longpoll...")
+                    return
+                else:
+                    print(f"No changes found at {path}, continuing to wait...")
+                    continue
+            elif 'reset' in response_json:
+                print(f"Cursor {cursor} is expired and must reset")
+                reset = True
+                continue
+            else:
+                print(f"Error: Failed to long poll at {path}: {response_json}", file=sys.stderr)
+                return
 
 
-def dump_to_state_file(state: Dict[str, str], state_file: Path) -> bool:
-    """Dump the state to the state file if changes were made."""
-    try:
-        with open(state_file, 'w') as f:
-            json.dump(state, f, indent=2)
-    except Exception as e:
-        print(f"Error: Failed to save state file: {e}", file=sys.stderr)
-        return False
-    return True
-
-
-def update_state_file_with_new_hostnames(
-    state_file: Path,
-    dropbox_dir: Path,
-    current_hostname: str
-) -> Dict[str, str]:
-    """Update state file with any new hostname directories found."""
-    state = load_state_file(state_file)
-    
-    # Discover all hostname directories
-    discovered_hostnames = discover_hostname_directories(dropbox_dir, current_hostname)
-    
-    updated = False
-    for hostname in discovered_hostnames:
-        # Skip current hostname
-        if hostname == current_hostname:
-            continue
-        
-        # If hostname is not in state, add it
-        if hostname not in state:
-            # Use an early timestamp (epoch) so we'll process future messages
-            state[hostname] = "1970-01-01T00:00:00.000Z"
-            print(f"Added new hostname '{hostname}' to state file with default timestamp (no .msg files found)")
-            updated = True
-    
-    # Save updated state file if changes were made
-    if updated:
-        return dump_to_state_file(state, state_file)
-    
-    return state
-
-
-def process_hostname_messages(
+def process_new_messages(
     remote_hostname: str,
     last_timestamp: str,
     dropbox_dir: Path,
@@ -218,32 +225,57 @@ def process_hostname_messages(
     host_dir = dropbox_dir / remote_hostname
     
     if not host_dir.exists() or not host_dir.is_dir():
-        print(f"Directory {host_dir} does not exist, skipping hostname {remote_hostname}")
+        print(f"Directory {host_dir} does not exist on the local host, therefore continuing to wait...")
         return
     
     print(f"Processing messages for hostname: {remote_hostname} (last timestamp: {last_timestamp})")
     
-    # Find all .msg files in the hostname directory
-    msg_files = list(host_dir.glob("*.msg"))
+    while True:
+        # Find all .msg files in the hostname directory
+        msg_files = list(host_dir.glob("*.msg"))
 
-    most_recent_timestamp = None
-    
-    for msg_file in msg_files:
-        file_timestamp = extract_timestamp_from_filename(msg_file)
+        most_recent_timestamp = None
         
-        # Compare timestamps: process if file_timestamp > last_timestamp
-        if compare_timestamps(file_timestamp, last_timestamp):
-            forward_message(msg_file, api_url)
-            most_recent_timestamp = file_timestamp
+        for msg_file in msg_files:
+            file_timestamp = extract_timestamp_from_filename(msg_file)
+            
+            # Compare timestamps: process if file_timestamp > last_timestamp
+            if compare_timestamps(file_timestamp, last_timestamp):
+                forward_message(msg_file, api_url)
+                most_recent_timestamp = file_timestamp
 
-    return most_recent_timestamp
+
+def process_messages_thread(
+    remote_hostname: str,
+    dropbox_dir: Path,
+    api_url: str
+) -> None:
+    """Process messages for a specific hostname."""
+
+    # Get the most recent timestamp from dropbox_dir/hostname.state, or use 1970-01-01T00:00:00.000Z if it doesn't exist
+    state_file = get_state_file_path()
+    state = load_state_file(state_file)
+    print(f"State file: {state_file}")
+
+    remote_hostname_path = Path(f"{dropbox_dir.parts[-1]}/{remote_hostname}")
+
+    last_timestamp = "1970-01-01T00:00:00.000Z"
+
+    if remote_hostname not in state:
+        ## In the future, we have to lock the state dictionary + json file to dump ##
+        state[remote_hostname] = "1970-01-01T00:00:00.000Z"
+        last_timestamp = "1970-01-01T00:00:00.000Z"
+    else:
+        last_timestamp = state[remote_hostname]
+
+    while True:
+        process_new_messages(remote_hostname, last_timestamp, dropbox_dir, api_url)
+        ## A fast way of getting the last two path elements: https://stackoverflow.com/a/69466662 ##
+        longpoll(path=remote_hostname_path)
 
 
-def main() -> None:
-    """Main function to process messages."""
-    print("Starting memmachine compose daemon")
-    
-    # Check if DROPBOX_DATA_DIR is set
+def watch_for_new_hosts() -> None:
+    """Loop over directoies under DROPBOX_DATA_DIR; use /longpoll to check if there are new subdirectories; start a thread for each"""
     dropbox_dir = os.getenv("DROPBOX_DATA_DIR")
     if not dropbox_dir:
         print("Error: DROPBOX_DATA_DIR environment variable is not set", file=sys.stderr)
@@ -252,48 +284,29 @@ def main() -> None:
     dropbox_path = Path(dropbox_dir)
     current_hostname = socket.gethostname()
     state_file = get_state_file_path()
-    
-    print(f"State file: {state_file}")
-    print(f"Current hostname: {current_hostname}")
-    
-    # Update state file with any new hostname directories discovered
-    state = update_state_file_with_new_hostnames(state_file, dropbox_path, current_hostname)
-    updated = False
 
-    if not state:
-        print("No hostnames found in state file")
-        return
-    
-    # Process each hostname (excluding current hostname)
-    for hostname, timestamp in state.items():
-        if hostname == current_hostname:
-            print(f"Skipping current hostname: {hostname}")
-            continue
-        
-        if not timestamp or timestamp == "null":
-            print(f"No timestamp found for hostname {hostname}, skipping")
-            continue
-        
-        most_recent_timestamp = process_hostname_messages(hostname, timestamp, dropbox_path, API_URL)
-        if most_recent_timestamp:
-            state[hostname] = most_recent_timestamp
-            updated = True
+    monitored_directories = []
 
-    # Save updated state if there there were more recent messages in the subdirectories
-    if updated:
-        dump_to_state_file(state, state_file)
+    while True:
+        for f in dropbox_path.iterdir():
+            if not f.is_dir():
+                continue
+
+            if f not in monitored_directories and f != current_hostname:
+                monitored_directories.append(f)
+                # Spin up a thread to process f
+                thread = threading.Thread(target=process_messages_thread, args=(f, state_file, dropbox_path, API_URL))
+                thread.start()
+
+        longpoll(path=(dropbox_path).parts[-1])
 
 
 if __name__ == "__main__":
-    # Run the main function in a loop
-    while True:
-        try:
-            main()
-        except KeyboardInterrupt:
-            print("\nShutting down...")
-            sys.exit(0)
-        except Exception as e:
-            print(f"Error in main loop: {e}", file=sys.stderr)
-        
-        time.sleep(CHECK_INTERVAL)
+    try:
+        watch_for_new_hosts()
+    except KeyboardInterrupt:
+        print("\nShutting down...")
+        sys.exit(0)
+    except Exception as e:
+        print(f"Error in main loop: {e}", file=sys.stderr)
 
