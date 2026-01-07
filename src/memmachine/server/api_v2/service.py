@@ -1,6 +1,7 @@
 """API v2 service implementations."""
 
 from dataclasses import dataclass
+from typing import Any
 
 from fastapi import Request
 
@@ -9,6 +10,7 @@ from memmachine.common.api import MemoryType as MemoryTypeE
 from memmachine.common.api.spec import (
     AddMemoriesSpec,
     AddMemoryResult,
+    ListMemoriesSpec,
     SearchMemoriesSpec,
     SearchResult,
 )
@@ -90,11 +92,39 @@ async def _search_target_memories(
         if spec.score_threshold is not None
         else -float("inf"),
     )
-    content = {}
-    if results.episodic_memory:
+    content: dict[str, Any] = {}
+    if results.episodic_memory is not None:
         content["episodic_memory"] = results.episodic_memory.model_dump()
     if results.semantic_memory is not None:
         content["semantic_memory"] = results.semantic_memory
+    return SearchResult(
+        status=0,
+        content=content,
+    )
+
+
+async def _list_target_memories(
+    target_memories: list[MemoryTypeE],
+    spec: ListMemoriesSpec,
+    memmachine: MemMachine,
+) -> SearchResult:
+    results = await memmachine.list_search(
+        session_data=_SessionData(
+            org_id=spec.org_id,
+            project_id=spec.project_id,
+        ),
+        target_memories=target_memories,
+        search_filter=spec.filter,
+        page_size=spec.page_size,
+        page_num=spec.page_num,
+    )
+
+    content: dict[str, Any] = {}
+    if results.episodic_memory is not None:
+        content["episodic_memory"] = results.episodic_memory
+    if results.semantic_memory is not None:
+        content["semantic_memory"] = results.semantic_memory
+
     return SearchResult(
         status=0,
         content=content,
