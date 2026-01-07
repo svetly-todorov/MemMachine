@@ -56,6 +56,22 @@ services:
     networks:
       - memmachine-network
 
+
+  # LLM server
+  llm:
+    image: ollama/ollama
+    container_name: memmachine-llm
+    restart: unless-stopped
+    entrypoint: ["/bin/sh", "/pull-qwen.sh"]
+    volumes:
+      - ollama_data:/root/.ollama
+      - ./pull-qwen.sh:/pull-qwen.sh:ro
+    ports:
+      - "11434:11434"
+    networks:
+      - memmachine-network
+
+
   # MemMachine application
   memmachine:
     image: ${MEMMACHINE_IMAGE:-memmachine/memmachine}
@@ -116,6 +132,8 @@ volumes:
   neo4j_plugins:
     driver: local
   memmachine_logs:
+    driver: local
+  ollama_data:
     driver: local
 
 networks:

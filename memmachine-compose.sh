@@ -650,12 +650,15 @@ set_provider_api_keys() {
         
         # Configure Ollama if selected
         if [[ "$llm_model" == "ollama_model" ]] || [[ "$embedder_model" == "ollama_embedder" ]]; then
-            print_prompt
-            read -p "Ollama base URL [http://host.docker.internal:11434/v1]: " base_url
-            base_url=${base_url:-http://host.docker.internal:11434/v1}
-            
-            safe_sed_inplace "s|base_url: .*|base_url: \"$base_url\"|g" configuration.yml
-            print_success "Set Ollama base URL: $base_url"
+            if grep -q "base_url: \"http://host.docker.internal:11434/v1\"" configuration.yml; then
+                print_info "Detected default Ollama base URL; please change it if necessary"
+                print_prompt
+                read -p "Ollama base URL [http://host.docker.internal:11434/v1]: " base_url
+                base_url=${base_url:-http://host.docker.internal:11434/v1}
+
+                safe_sed_inplace "s|base_url: .*|base_url: \"$base_url\"|g" configuration.yml
+                print_success "Set Ollama base URL: $base_url"
+            fi
         fi
     fi
 }
