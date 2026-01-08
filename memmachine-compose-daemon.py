@@ -4,6 +4,7 @@ Daemon script that processes message files from other hostnames and forwards the
 to the local memmachine API instance.
 """
 
+from email import message
 import os
 from os import listdir
 from os.path import isdir, join
@@ -12,15 +13,21 @@ import json
 import socket
 import subprocess
 import threading
-import time
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
+
+try:
+    from watchdog.events import FileSystemEvent, FileSystemEventHandler
+    from watchdog.observers import Observer
+except ImportError:
+    print("Error: 'watchdog' library is required. Install it with: python3 -m pip install watchdog")
+    sys.exit(1)
 
 try:
     import requests
 except ImportError:
-    print("Error: 'requests' library is required. Install it with: pip install requests")
+    print("Error: 'requests' library is required. Install it with: python3 -m pip install requests")
     sys.exit(1)
 
 
@@ -155,247 +162,112 @@ def forward_message(msg_file: Path, api_url: str) -> bool:
         return False
 
 
-# def update_state_file_with_new_hostnames(
-#     state_file: Path,
-#     dropbox_dir: Path,
-#     current_hostname: str
-# ) -> Dict[str, str]:
-#     """Update state file with any new hostname directories found."""
-#     state = load_state_file(state_file)
-    
-#     # Discover all hostname directories
-#     discovered_hostnames = discover_hostname_directories(dropbox_dir, current_hostname)
-    
-#     updated = False
-#     for hostname in discovered_hostnames:
-#         # Skip current hostname
-#         if hostname == current_hostname:
-#             continue
-        
-#         # If hostname is not in state, add it
-#         if hostname not in state:
-#             # Use an early timestamp (epoch) so we'll process future messages
-#             state[hostname] = "1970-01-01T00:00:00.000Z"
-#             log_message(f"Added new hostname '{hostname}' to state file with default timestamp (no .msg files found)")
-#             updated = True
-    
-#     # Save updated state file if changes were made
-#     if updated:
-#         return dump_to_state_file(state, state_file)
-    
-#     return state
+state = {}
 
 
-def list_folder(path: Path) -> None:
-    """Call list_folder API."""
-    strpath = str(path)
-    url = 'https://api.dropboxapi.com/2/files/list_folder'
-    data = json.dumps({
-        "include_deleted": False,
-        "include_has_explicit_shared_members": False,
-        "include_media_info": False,
-        "include_mounted_folders": True,
-        "include_non_downloadable_files": True,
-        "path": f"/{strpath}",
-        "recursive": False
-    })
-    response = requests.post(url, data=data, headers={'Authorization': f'Bearer {os.getenv("DROPBOX_ACCESS_TOKEN")}', 'Content-Type': 'application/json'})
-    if response.status_code != 200:
-        log_message(f"Error: Did not get status 200 for list_folder at /{strpath}, instead {response.status_code} with json: {response.json()}")
-        exit(1)
-    log_message("---")
-    log_message(f"List folder response for {strpath}:")
-    log_message(response.json())
-    log_message("---")
+def dump_to_state_file(state: dict):
+    try:
+        with open(get_state_file_path(), 'w') as f:
+            json.dump(state, f, indent=2)
+        print(f"Updated state file: {get_state_file_path()}")
+    except Exception as e:
+        print(f"Error: Failed to save state file: {e}", file=sys.stderr)
 
 
-def get_latest_cursor(path: Path) -> str:
-    """Get the latest cursor for the path. Path is relative to the root of the dropbox directory."""
-    strpath = str(path)
-    url = 'https://api.dropboxapi.com/2/files/list_folder/get_latest_cursor'
-    data = json.dumps({
-        "include_deleted": False,
-        "include_has_explicit_shared_members": False,
-        "include_media_info": False,
-        "include_mounted_folders": True,
-        "include_non_downloadable_files": True,
-        "path": f"/{strpath}",
-        "recursive": False
-    })
-    response = requests.post(url, data=data, headers={'Authorization': f'Bearer {os.getenv("DROPBOX_ACCESS_TOKEN")}', 'Content-Type': 'application/json'})
-    if response.status_code != 200:
-        log_message(f"Error: Did not get status 200 for get_latest_cursor at /{strpath}, instead {response.status_code} with json: {response.json()}")
-        exit(1)
-    ## log_message(f"get_latest_cursor response for {strpath}: {response.json()}")
-    if 'cursor' not in response.json():
-        log_message(f"Error: Did not get cursor for get_latest_cursor at /{strpath}: {response.json()}")
-        exit(1)
-    ## log_message(f"Found cursor: {response.json()['cursor']} for {strpath}")
-    return response.json()['cursor']
+class MessageEventHandler(FileSystemEventHandler):
+    def on_created(self, event: FileSystemEvent) -> None:
+        message_path = Path(event.src_path)
 
+        if event.is_directory:
+            return
 
-def get_path_in_dropbox(path: Path) -> Path:
-    """Get the path relative to the root of the dropbox directory."""
-    dropbox_data_dir = os.getenv("DROPBOX_DATA_DIR")
-    if not dropbox_data_dir:
-        log_message("Error: DROPBOX_DATA_DIR environment variable is not set")
-        return
-    
-    return path.relative_to(Path(dropbox_data_dir))
-
-
-def longpoll(path: Path) -> None:
-    """Long poll for new subdirectories under path. Path should be relative to the root of the dropbox directory."""
-
-    longpoll_timeout = 480
-    reset = True
-    cursor = None
-
-    while True:
-        if reset:
-            cursor = get_latest_cursor(path)
-            if cursor is None:
-                log_message(f"Error: Failed to get latest cursor for {path}")
-                return
-        
-        log_message(f"Long polling at {path} with cursor {cursor} and max timeout {longpoll_timeout}s")
-
-        url = 'https://notify.dropboxapi.com/2/files/list_folder/longpoll'
-        data = json.dumps({
-            "cursor": cursor,
-            "timeout": longpoll_timeout
-        })
-        response = requests.post(url, data=data, headers={'Content-Type': 'application/json'})
-        if response.status_code == 200:
-            response_json = response.json()
-            if 'changes' in response_json:
-                if response_json['changes'] == True:
-                    log_message(f"Changes found at {path}, exiting longpoll...")
-                    return
-                else:
-                    log_message(f"No changes found at {path}, continuing to wait...")
-                    continue
-            elif 'reset' in response_json:
-                log_message(f"Cursor {cursor} is expired and must reset")
-                reset = True
-                continue
-            else:
-                log_message(f"Error: Did not recognize condition after 200 success: got {response_json}")
-                exit(1)
-        else:
-            log_message(f"Error: Failed to long poll at {path}, status code {response.status_code}")
-            exit(1)
-
-
-def process_new_messages(
-    remote_hostname: str,
-    previous_timestamp: str,
-    dropbox_dir: Path,
-    api_url: str
-) -> Optional[str]:
-    """Process all message files for a specific hostname."""
-    host_dir = dropbox_dir / remote_hostname
-    most_recent_timestamp = previous_timestamp
-
-    if not host_dir.exists() or not host_dir.is_dir():
-        log_message(f"Directory {host_dir} does not exist on the local host, therefore continuing to wait...")
-        return
-
-    log_message(f"Processing messages for hostname: {remote_hostname} (since previous timestamp: {previous_timestamp})")
-
-    # Find all .msg files in the given remote-hostname directory
-    msg_files = list(host_dir.glob("*.msg"))
-
-    for msg_file in msg_files:
-        file_timestamp = extract_timestamp_from_filename(msg_file)
-        
-        # Compare timestamps: process if file_timestamp > previous_timestamp
-        if compare_timestamps(file_timestamp, previous_timestamp):
-            if not forward_message(msg_file, api_url):
-                log_message(f"Error: Failed to forward message from {msg_file}")
+        if message_path.suffix == ".msg":
+            ts = message_path.stem
+            host = message_path.parent.name
+            
+            if not forward_message(event.src_path, API_URL):
+                log_message(f"Error: Failed to forward message from {event.src_path}")
                 return
 
-        ## Update most_recent_timestamp if file_timestamp is greater
-        ## Done seperately from previous timestamp in case the msg_files are not processed in order
-        if compare_timestamps(file_timestamp, most_recent_timestamp):
-            most_recent_timestamp = file_timestamp
+            if compare_timestamps(ts, state[host]):
+                state[host] = ts
 
-    return most_recent_timestamp
+        return
 
 
-def process_messages_thread(
-    remote_hostname: str,
-    dropbox_dir: Path,
-    api_url: str
-) -> None:
-    """Process messages for a specific hostname."""
-
-    # Get the most recent timestamp from dropbox_dir/hostname.state, or use 1970-01-01T00:00:00.000Z if it doesn't exist
-    state_file = get_state_file_path()
-    state = load_state_file(state_file)
-    log_message(f"State file: {state_file}")
-
-    previous_timestamp = "1970-01-01T00:00:00.000Z"
-
-    if remote_hostname not in state:
-        ## In the future, we have to lock the state dictionary + json file in order to dump ##
-        state[remote_hostname] = "1970-01-01T00:00:00.000Z"
-        previous_timestamp = "1970-01-01T00:00:00.000Z"
-    else:
-        previous_timestamp = state[remote_hostname]
-
-    while True:
-        most_recent_timestamp = process_new_messages(remote_hostname, previous_timestamp, dropbox_dir, api_url)
-        if most_recent_timestamp is not None:
-            state[remote_hostname] = most_recent_timestamp
-            previous_timestamp = most_recent_timestamp
-            log_message(f"Updated {remote_hostname} state with more recent timestamp: {previous_timestamp}")
-            ## TODO: Dump the newest most recent timestamp to the state file ##
-        longpoll(path=get_path_in_dropbox(dropbox_dir / remote_hostname))
-
-
-def watch_for_new_hosts() -> None:
-    """Loop over directoies under DROPBOX_DATA_DIR; use /longpoll to check if there are new subdirectories; start a thread for each"""
+def add_new_messages():
+    saved_state = load_state_file(get_state_file_path())
+    ## Ignore the current hostname + memmachine directory (allows me to keep this project in dropbox, not have to mirror changes to the repo) ##
+    ignore_list = [socket.gethostname(), "memmachine", "mmemmachine"]
     dropbox_dir = os.getenv("DROPBOX_DATA_DIR")
     if not dropbox_dir:
         log_message("Error: DROPBOX_DATA_DIR environment variable is not set")
         return
+
+    dropbox_dir_path = Path(dropbox_dir)
+
+    for f in dropbox_dir_path.iterdir():
+        if not f.is_dir():
+            continue
+
+        if f.name in ignore_list:
+            log_message(f"Ignoring directory {f.name}")
+            continue
+
+        host = str(f.name)
+        msg_files = list[Any](f.glob("*.msg"))
+        last_saved_timestamp = saved_state.get(host)
+        if last_saved_timestamp is None:
+            last_saved_timestamp = "1970-01-01T00:00:00.000Z"
+        most_recent_timestamp = last_saved_timestamp
+
+        log_message(f"Processing messages from {host}")
+
+        for msg_file in msg_files:
+            file_timestamp = extract_timestamp_from_filename(msg_file)
+            
+            # Compare timestamps: process if file_timestamp > last_saved_timestamp
+            if compare_timestamps(file_timestamp, last_saved_timestamp):
+                if not forward_message(msg_file, API_URL):
+                    log_message(f"Error: Failed to forward message from {msg_file}")
+                    return
+
+            ## Update most_recent_timestamp if file_timestamp is greater
+            ## Done seperately from previous timestamp in case the msg_files are not processed in order
+            if compare_timestamps(file_timestamp, most_recent_timestamp):
+                most_recent_timestamp = file_timestamp
+        
+        state[host] = most_recent_timestamp
     
-    dropbox_path = Path(dropbox_dir)
-    state_file = get_state_file_path()
+    return
 
-    monitored_directories = []
 
-    ## Ignore the current hostname + memmachine directory (allows me to keep this project in dropbox, not have to mirror changes to the repo) ##
-    ignore_list = [socket.gethostname(), "memmachine", "mmemmachine"]
+def watch_for_messages() -> None:
+    """ Propagate all messages that are in the state folders. """
+    dropbox_dir = os.getenv("DROPBOX_DATA_DIR")
+    if not dropbox_dir:
+        log_message("Error: DROPBOX_DATA_DIR environment variable is not set")
+        return
 
-    ## For debug, list the contents of dropbox root dir ##
-    list_folder(Path("/"))
-
-    while True:
-        for f in dropbox_path.iterdir():
-            if not f.is_dir():
-                continue
-
-            log_message(f"Found directory: {f}")
-
-            if f.name not in monitored_directories and f.name not in ignore_list:
-                log_message(f"Starting a thread to monitor directory {f}")
-                remote_hostname = str(f.name)
-                monitored_directories.append(f.name)
-                thread = threading.Thread(target=process_messages_thread, args=(remote_hostname, dropbox_path, API_URL))
-                thread.start()
-
-        ## Watch the data directory for new hosts ##
-        longpoll(path=(Path("/")))
+    observer = Observer()
+    message_event_handler = MessageEventHandler()
+    observer.schedule(message_event_handler, str(dropbox_dir), recursive=True)
+    observer.start()
+    try:
+        while True:
+            observer.join(1)
+    except KeyboardInterrupt:
+        observer.stop()
+        dump_to_state_file(state)
+    observer.join()
 
 
 if __name__ == "__main__":
     try:
-        watch_for_new_hosts()
+        add_new_messages()
+        watch_for_messages()
     except KeyboardInterrupt:
         log_message("\nShutting down...")
         sys.exit(0)
     except Exception as e:
         log_message(f"Error in main loop: {e}")
-
