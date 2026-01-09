@@ -32,7 +32,7 @@ except ImportError:
 
 
 # Configuration
-API_URL = "http://localhost:8080/api/v2/memories"
+API_URL = os.getenv("API_URL", "http://localhost:8080/api/v2/memories")
 CHECK_INTERVAL = 10  # seconds
 
 

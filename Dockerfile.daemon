@@ -1,0 +1,37 @@
+#
+# Dockerfile for memmachine-compose-daemon
+# A daemon that processes message files and forwards them to the memmachine API
+#
+
+FROM python:3.12-slim
+
+# Update OS packages
+RUN apt-get update && \
+    apt-get upgrade -y && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
+
+# Upgrade pip
+RUN python -m pip install --upgrade pip
+
+# Install Python dependencies
+RUN pip install --no-cache-dir watchdog requests
+
+# Set working directory
+WORKDIR /app
+
+# Copy the daemon script
+COPY memmachine-compose-daemon.py /app/memmachine-compose-daemon.py
+
+# Make the script executable
+RUN chmod +x /app/memmachine-compose-daemon.py
+
+# Set default environment variables
+# DROPBOX_DATA_DIR must be provided at runtime (required)
+# API_URL can be overridden (defaults to http://localhost:8080/api/v2/memories)
+# When running in docker-compose, use the service name: http://memmachine:8080/api/v2/memories
+ENV API_URL="http://localhost:8080/api/v2/memories"
+
+# The script expects DROPBOX_DATA_DIR to be set at runtime
+# Run the daemon
+CMD ["python3", "/app/memmachine-compose-daemon.py"]

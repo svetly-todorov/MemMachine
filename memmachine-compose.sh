@@ -916,6 +916,69 @@ build_image() {
     docker build --build-arg GPU=$gpu -t "$name" .
 }
 
+build_daemon_image() {
+    local name=""
+    local force="false"
+    local reply=""
+    local key=""
+    local value=""
+
+    while [[ $# -gt 0 ]]; do
+        # This section splits the key and value if they are separated by an "=" sign
+        if [[ "$1" == --* ]]; then
+            if [[ "$1" == *=* ]]; then
+                key=$(echo "$1" | cut -d '=' -f 1)
+                value=$(echo "$1" | cut -d '=' -f 2-)
+                shift
+            else
+                key="$1"
+                value="$2"
+                if [[ "$#" -ge 2 ]]; then
+                    shift 2
+                else
+                    print_error "Missing value for argument: $1"
+                    exit 1
+                fi
+            fi
+        else 
+            # If no leading "--", then this is not an option, so just use put the argument in $key
+            key="$1"
+            value=""
+            shift
+        fi
+
+        case "$key" in
+            -f|--force)
+                force="true"
+                ;;
+            *)
+                name="$key"
+                ;;
+        esac
+    done
+
+    if [[ -z "$name" ]]; then
+        print_info "No name specified."
+        print_info "Using default name: memmachine/daemon:latest"
+        name="memmachine/daemon:latest"
+    fi
+
+    if [[ "$force" == "false" ]]; then
+        print_prompt
+        read -p "Building daemon image $name? (y/N): " reply
+        if [[ ! "$reply" =~ ^[Yy]$ ]]; then
+            print_info "Build cancelled"
+            exit 0
+        fi
+    else
+        print_info "Building daemon image $name"
+    fi
+
+    # Proceed with build after validation passes
+    print_info "Building $name using Dockerfile.daemon"
+    docker build -f Dockerfile.daemon -t "$name" .
+}
+
 dropbox_check_sync() {
     if [[ ! -f "${HOME}/dropbox.py" ]]; then
         print_error "You're missing the dropbox.py script. Please install from https://www.dropbox.com/install-linux"
@@ -1013,6 +1076,10 @@ case "${1:-}" in
         shift
         build_image "$@"
         ;;
+    "build-daemon")
+        shift
+        build_daemon_image "$@"
+        ;;
     "help"|"-h"|"--help")
         echo "MemMachine Docker Startup Script"
         echo ""
@@ -1025,6 +1092,7 @@ case "${1:-}" in
         echo "  logs                                                   Show service logs"
         echo "  clean                                                  Remove all services and data"
         echo "  build [<image>:<tag>] [--gpu true/false] [-f|--force]  Build a custom MemMachine image"
+        echo "  build-daemon [<image>:<tag>] [-f|--force]              Build the daemon image"
         echo "  help                                                   Show this help message"
         echo ""
         echo "Provider Options:"

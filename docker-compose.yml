@@ -118,6 +118,27 @@ services:
     networks:
       - memmachine-network
 
+  # MemMachine daemon for processing message files
+  memmachine-daemon:
+    image: ${MEMMACHINE_DAEMON_IMAGE:-memmachine/daemon:latest}
+    pull_policy: ${PULL_POLICY:-always}
+    container_name: memmachine-daemon
+    restart: unless-stopped
+    environment:
+      # API configuration
+      API_URL: ${DAEMON_API_URL:-http://memmachine:8080/api/v2/memories}
+      # Dropbox data directory inside container (always /data/dropbox)
+      DROPBOX_DATA_DIR: /data/dropbox
+    volumes:
+      # Mount host dropbox directory to container
+      # Set DROPBOX_HOST_DIR environment variable to specify host path
+      - ${DROPBOX_HOST_DIR:-./dropbox_data}:/data/dropbox:rw
+    depends_on:
+      memmachine:
+        condition: service_healthy
+    networks:
+      - memmachine-network
+
 volumes:
   postgres_data:
     driver: local
