@@ -33,7 +33,6 @@ except ImportError:
 
 # Configuration
 API_URL = os.getenv("API_URL", "http://localhost:8080/api/v2/memories")
-CHECK_INTERVAL = 10  # seconds
 
 
 def log_message(message: str) -> None:
@@ -249,25 +248,51 @@ def watch_for_messages() -> None:
         log_message("Error: DROPBOX_DATA_DIR environment variable is not set")
         return
 
+    dropbox_dir_path = Path(dropbox_dir)
+    if not dropbox_dir_path.exists():
+        log_message(f"Error: Dropbox directory {dropbox_dir_path} does not exist")
+        return
+
+    log_message(f"Watching directory: {dropbox_dir_path}")
     observer = Observer()
     message_event_handler = MessageEventHandler()
     observer.schedule(message_event_handler, str(dropbox_dir), recursive=True)
     observer.start()
+    log_message("File system watcher started successfully")
     try:
         while True:
             observer.join(1)
     except KeyboardInterrupt:
+        log_message("Received interrupt signal, stopping watcher...")
         observer.stop()
         dump_to_state_file(state)
     observer.join()
+    log_message("File system watcher stopped")
 
 
 if __name__ == "__main__":
     try:
+        # Log startup information
+        log_message("=" * 60)
+        log_message("MemMachine Daemon starting...")
+        log_message(f"API URL: {API_URL}")
+        dropbox_dir = os.getenv("DROPBOX_DATA_DIR")
+        if dropbox_dir:
+            log_message(f"Dropbox directory: {dropbox_dir}")
+        else:
+            log_message("ERROR: DROPBOX_DATA_DIR environment variable is not set")
+            sys.exit(1)
+        log_message(f"Hostname: {socket.gethostname()}")
+        log_message("=" * 60)
+        
         add_new_messages()
+        log_message("Starting file system watcher...")
         watch_for_messages()
     except KeyboardInterrupt:
         log_message("\nShutting down...")
         sys.exit(0)
     except Exception as e:
         log_message(f"Error in main loop: {e}")
+        import traceback
+        log_message(traceback.format_exc())
+        sys.exit(1)
