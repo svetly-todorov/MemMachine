@@ -51,10 +51,10 @@ def _dict_to_filter_string(filter_dict: dict[str, str]) -> str:
 
 
 def save_message_to_file(message_payload: dict, timestamp: str) -> None:
-    """Save message to file in DROPBOX_DATA_DIR/hostname/timestamp.msg format."""
-    dropbox_dir = os.getenv("DROPBOX_DATA_DIR")
+    """Save message to file in DROPBOX_HOST_DIR/hostname/timestamp.msg format."""
+    dropbox_dir = os.getenv("DROPBOX_HOST_DIR")
     if not dropbox_dir:
-        print("DROPBOX_DATA_DIR is not set", file=sys.stderr)
+        print("DROPBOX_HOST_DIR is not set", file=sys.stderr)
         return
     
     try:
