@@ -3,10 +3,13 @@
 import asyncio
 import json
 import logging
+import os
 import time
 from typing import Any, TypeVar
+from urllib.parse import urljoin
 from uuid import uuid4
 
+import aiohttp
 import openai
 from openai.types.responses import Response
 from pydantic import BaseModel, Field, InstanceOf
@@ -19,6 +22,9 @@ from .language_model import LanguageModel
 T = TypeVar("T")
 
 logger = logging.getLogger(__name__)
+
+# Environment variable for OpenAI proxy URL
+OPENAI_PROXY_URL_ENV = "OPENAI_PROXY_URL"
 
 
 class OpenAIResponsesLanguageModelParams(BaseModel):
@@ -87,6 +93,17 @@ class OpenAIResponsesLanguageModel(LanguageModel):
 
         self._max_retry_interval_seconds = params.max_retry_interval_seconds
 
+        # Check for proxy URL from environment variable
+        proxy_url = os.getenv(OPENAI_PROXY_URL_ENV)
+        if proxy_url:
+            # Ensure the proxy URL ends with /proxy/
+            self._proxy_url = urljoin(proxy_url.rstrip("/") + "/", "proxy/")
+            self._use_proxy = True
+            logger.info("Using OpenAI proxy", "proxy_url", self._proxy_url)
+        else:
+            self._proxy_url = None
+            self._use_proxy = False
+
         metrics_factory = params.metrics_factory
 
         self._should_collect_metrics = False
@@ -150,18 +167,33 @@ class OpenAIResponsesLanguageModel(LanguageModel):
         start_time = time.monotonic()
 
         try:
-            response = await self._client.with_options(
-                max_retries=max_attempts,
-            ).responses.parse(
-                model=self._model,  # type: ignore[arg-type]
-                input=input_prompts,  # type: ignore[arg-type]
-                text_format=output_format,
-            )
+            if self._use_proxy:
+                response = await self._call_proxy_parse(
+                    input_prompts=input_prompts,
+                    output_format=output_format,
+                    max_attempts=max_attempts,
+                )
+            else:
+                response = await self._client.with_options(
+                    max_retries=max_attempts,
+                ).responses.parse(
+                    model=self._model,  # type: ignore[arg-type]
+                    input=input_prompts,  # type: ignore[arg-type]
+                    text_format=output_format,
+                )
         except openai.OpenAIError as e:
             error_message = (
                 f"[call uuid: {generate_response_call_uuid}] "
                 "Giving up generating response "
                 f"due to non-retryable {type(e).__name__}"
+            )
+            logger.exception(error_message)
+            raise ExternalServiceAPIError(error_message) from e
+        except Exception as e:
+            error_message = (
+                f"[call uuid: {generate_response_call_uuid}] "
+                "Giving up generating response "
+                f"due to error: {type(e).__name__}"
             )
             logger.exception(error_message)
             raise ExternalServiceAPIError(error_message) from e
@@ -209,12 +241,19 @@ class OpenAIResponsesLanguageModel(LanguageModel):
                     attempt,
                     max_attempts,
                 )
-                response = await self._client.responses.create(
-                    model=self._model,
-                    input=input_prompts,
-                    tools=tools,
-                    tool_choice=tool_choice if tool_choice is not None else "auto",
-                )  # type: ignore
+                if self._use_proxy:
+                    response = await self._call_proxy_create(
+                        input_prompts=input_prompts,
+                        tools=tools,
+                        tool_choice=tool_choice if tool_choice is not None else "auto",
+                    )
+                else:
+                    response = await self._client.responses.create(
+                        model=self._model,
+                        input=input_prompts,
+                        tools=tools,
+                        tool_choice=tool_choice if tool_choice is not None else "auto",
+                    )  # type: ignore
                 break
             except (
                 openai.RateLimitError,
@@ -325,3 +364,114 @@ class OpenAIResponsesLanguageModel(LanguageModel):
                 value=end_time - start_time,
                 labels=self._user_metrics_labels,
             )
+
+    async def _call_proxy_parse(
+        self,
+        input_prompts: list[dict[str, str]],
+        output_format: type[T],
+        max_attempts: int,
+    ) -> Response:
+        """Call the proxy server for responses.parse."""
+        if not self._proxy_url:
+            raise ValueError("Proxy URL not configured")
+
+        # Convert Pydantic model class to JSON schema for text_format
+        # The OpenAI API expects text_format as a JSON schema
+        try:
+            if issubclass(output_format, BaseModel):
+                text_format_schema = output_format.model_json_schema()
+            else:
+                # Fallback: try to get schema from the type
+                text_format_schema = {"type": "string"}
+        except TypeError:
+            # output_format is not a class, use string fallback
+            text_format_schema = {"type": "string"}
+
+        # Construct the request body as OpenAI expects
+        request_body = {
+            "model": self._model,
+            "input": input_prompts,
+            "text_format": text_format_schema,
+        }
+
+        timeout = aiohttp.ClientTimeout(total=300.0)
+        for attempt in range(1, max_attempts + 1):
+            try:
+                async with aiohttp.ClientSession(timeout=timeout) as session:
+                    async with session.post(
+                        self._proxy_url,
+                        json=request_body,
+                        headers={"Content-Type": "application/json"},
+                    ) as response:
+                        response.raise_for_status()
+
+                        # Parse the response as OpenAI Response type
+                        response_data = await response.json()
+                        return Response(**response_data)
+            except aiohttp.ClientResponseError as e:
+                if attempt >= max_attempts:
+                    # Convert HTTP errors to OpenAI-like errors for consistency
+                    if e.status == 429:
+                        raise openai.RateLimitError(
+                            f"Rate limit error: {e.message}",
+                            response=None,
+                            body=e.message,
+                        ) from e
+                    elif e.status >= 500:
+                        raise openai.APIConnectionError(
+                            f"Server error: {e.message}",
+                            request=None,
+                        ) from e
+                    else:
+                        raise openai.APIError(
+                            f"API error: {e.message}",
+                            request=None,
+                            response=None,
+                        ) from e
+                # Retry on server errors
+                if e.status >= 500:
+                    await asyncio.sleep(2 ** (attempt - 1))
+                    continue
+                raise
+            except (aiohttp.ClientError, asyncio.TimeoutError) as e:
+                if attempt >= max_attempts:
+                    raise openai.APIConnectionError(
+                        f"Connection error: {str(e)}",
+                        request=None,
+                    ) from e
+                await asyncio.sleep(2 ** (attempt - 1))
+                continue
+
+        raise ExternalServiceAPIError("Failed to call proxy after all attempts")
+
+    async def _call_proxy_create(
+        self,
+        input_prompts: list[dict[str, str]],
+        tools: list[dict[str, Any]] | None = None,
+        tool_choice: str | dict[str, str] = "auto",
+    ) -> Response:
+        """Call the proxy server for responses.create."""
+        if not self._proxy_url:
+            raise ValueError("Proxy URL not configured")
+
+        # Construct the request body as OpenAI expects
+        request_body: dict[str, Any] = {
+            "model": self._model,
+            "input": input_prompts,
+            "tool_choice": tool_choice,
+        }
+        if tools is not None:
+            request_body["tools"] = tools
+
+        timeout = aiohttp.ClientTimeout(total=300.0)
+        async with aiohttp.ClientSession(timeout=timeout) as session:
+            async with session.post(
+                self._proxy_url,
+                json=request_body,
+                headers={"Content-Type": "application/json"},
+            ) as response:
+                response.raise_for_status()
+
+                # Parse the response as OpenAI Response type
+                response_data = await response.json()
+                return Response(**response_data)
