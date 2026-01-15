@@ -2,10 +2,13 @@
 
 import asyncio
 import logging
+import os
 import time
 from typing import Any
+from urllib.parse import urljoin
 from uuid import UUID, uuid4
 
+import aiohttp
 import numpy as np
 import openai
 from pydantic import BaseModel, Field, InstanceOf
@@ -17,6 +20,9 @@ from memmachine.common.utils import chunk_text_balanced, cluster_texts, unflatte
 from .embedder import Embedder
 
 logger = logging.getLogger(__name__)
+
+# Environment variable for OpenAI proxy URL
+OPENAI_PROXY_URL_ENV = "OPENAI_PROXY_URL"
 
 
 class OpenAIEmbedderParams(BaseModel):
@@ -84,6 +90,17 @@ class OpenAIEmbedder(Embedder):
         self._max_retry_interval_seconds = params.max_retry_interval_seconds
 
         self._max_input_length = params.max_input_length
+
+        # Check for proxy URL from environment variable
+        proxy_url = os.getenv(OPENAI_PROXY_URL_ENV)
+        if proxy_url:
+            # Ensure the proxy URL ends with /proxy/
+            self._proxy_url = urljoin(proxy_url.rstrip("/") + "/", "proxy/v1/embeddings")
+            self._use_proxy = True
+            logger.info("Using OpenAI proxy", "proxy_url", self._proxy_url)
+        else:
+            self._proxy_url = None
+            self._use_proxy = False
 
         metrics_factory = params.metrics_factory
 
@@ -232,24 +249,38 @@ class OpenAIEmbedder(Embedder):
                 # Avoid concurrency issues by tracking whether dimensions parameter is used for this request only.
                 dimensions_parameter_used = self._use_dimensions_parameter
                 try:
-                    response = (
-                        await self._client.embeddings.create(
-                            input=chunk_cluster,
-                            model=self._model,
-                            dimensions=self._dimensions,
+                    if self._use_proxy:
+                        response = (
+                            await self._call_proxy_embeddings_create(
+                                input=chunk_cluster,
+                                dimensions=self._dimensions if dimensions_parameter_used else None,
+                            )
                         )
-                        if dimensions_parameter_used
-                        else await self._client.embeddings.create(
-                            input=chunk_cluster,
-                            model=self._model,
+                    else:
+                        response = (
+                            await self._client.embeddings.create(
+                                input=chunk_cluster,
+                                model=self._model,
+                                dimensions=self._dimensions,
+                            )
+                            if dimensions_parameter_used
+                            else await self._client.embeddings.create(
+                                input=chunk_cluster,
+                                model=self._model,
+                            )
                         )
-                    )
                 except openai.BadRequestError as err:
                     if "dimension" in str(err).lower() and dimensions_parameter_used:
-                        response = await self._client.embeddings.create(
-                            input=chunk_cluster,
-                            model=self._model,
-                        )
+                        if self._use_proxy:
+                            response = await self._call_proxy_embeddings_create(
+                                input=chunk_cluster,
+                                dimensions=None,
+                            )
+                        else:
+                            response = await self._client.embeddings.create(
+                                input=chunk_cluster,
+                                model=self._model,
+                            )
                         self._use_dimensions_parameter = False
                         break
                     raise
@@ -329,6 +360,94 @@ class OpenAIEmbedder(Embedder):
     def dimensions(self) -> int:
         """Return the embedding dimensionality."""
         return self._dimensions
+
+    async def _call_proxy_embeddings_create(
+        self,
+        input: list[str],
+        dimensions: int | None = None,
+    ) -> Any:
+        """Call the proxy server for embeddings.create."""
+        if not self._proxy_url:
+            raise ValueError("Proxy URL not configured")
+
+        # Construct the request body as OpenAI expects
+        request_body: dict[str, Any] = {
+            "model": self._model,
+            "input": input,
+        }
+        if dimensions is not None:
+            request_body["dimensions"] = dimensions
+
+        timeout = aiohttp.ClientTimeout(total=300.0)
+        try:
+            async with aiohttp.ClientSession(timeout=timeout) as session:
+                async with session.post(
+                    self._proxy_url,
+                    json=request_body,
+                    headers={"Content-Type": "application/json"},
+                ) as response:
+                    if response.status == 400:
+                        # BadRequestError - might be dimension-related
+                        error_text = await response.text()
+                        raise openai.BadRequestError(
+                            message=error_text,
+                            body=error_text,
+                            response=response,
+                        )
+                    elif response.status == 429:
+                        # RateLimitError
+                        error_text = await response.text()
+                        raise openai.RateLimitError(
+                            message=error_text,
+                            response=response,
+                            body=error_text,
+                        )
+                    elif response.status >= 500:
+                        # Server errors - treat as connection errors
+                        error_text = await response.text()
+                        raise openai.APIConnectionError(
+                            message=f"Server error: {error_text}",
+                            request=None,
+                        )
+                    response.raise_for_status()
+
+                    # Parse the response - OpenAI embeddings response structure
+                    response_data = await response.json()
+                    
+                    # Convert to OpenAI-like response object
+                    # The response should have: data, model, usage
+                    # We need to create a mock object that has the same structure
+                    class EmbeddingData:
+                        def __init__(self, embedding: list[float]):
+                            self.embedding = embedding
+                    
+                    class EmbeddingUsage:
+                        def __init__(self, prompt_tokens: int, total_tokens: int):
+                            self.prompt_tokens = prompt_tokens
+                            self.total_tokens = total_tokens
+                    
+                    class EmbeddingResponse:
+                        def __init__(self, data: list[dict], usage: dict):
+                            self.data = [EmbeddingData(item["embedding"]) for item in data]
+                            self.usage = EmbeddingUsage(
+                                usage.get("prompt_tokens", 0),
+                                usage.get("total_tokens", 0),
+                            )
+                    
+                    return EmbeddingResponse(
+                        response_data.get("data", []),
+                        response_data.get("usage", {}),
+                    )
+        except asyncio.TimeoutError as e:
+            raise openai.APITimeoutError(
+                message=f"Request timeout: {str(e)}",
+                request=None,
+            ) from e
+        except aiohttp.ClientError as e:
+            raise openai.APIConnectionError(
+                message=f"Connection error: {str(e)}",
+                request=None,
+            ) from e
 
     @property
     def similarity_metric(self) -> SimilarityMetric:

@@ -97,7 +97,7 @@ class OpenAIResponsesLanguageModel(LanguageModel):
         proxy_url = os.getenv(OPENAI_PROXY_URL_ENV)
         if proxy_url:
             # Ensure the proxy URL ends with /proxy/
-            self._proxy_url = urljoin(proxy_url.rstrip("/") + "/", "proxy/")
+            self._proxy_url = urljoin(proxy_url.rstrip("/") + "/", "proxy/v1/responses")
             self._use_proxy = True
             logger.info("Using OpenAI proxy", "proxy_url", self._proxy_url)
         else:
