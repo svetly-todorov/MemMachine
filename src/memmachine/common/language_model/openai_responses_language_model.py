@@ -403,41 +403,25 @@ class OpenAIResponsesLanguageModel(LanguageModel):
                         json=request_body,
                         headers={"Content-Type": "application/json"},
                     ) as response:
-                        response.raise_for_status()
+                        text = await response.text()  # <-- capture body no matter what
 
-                        # Parse the response as OpenAI Response type
+                        if response.status >= 400:
+                            # retry only on 5xx
+                            if response.status >= 500 and attempt < max_attempts:
+                                await asyncio.sleep(2 ** (attempt - 1))
+                                continue
+
+                            raise ExternalServiceAPIError(
+                                f"OpenAI proxy error: status={response.status} url={response.url} body={text}"
+                            )
+
                         response_data = await response.json()
                         return Response(**response_data)
-            except aiohttp.ClientResponseError as e:
-                if attempt >= max_attempts:
-                    # Convert HTTP errors to OpenAI-like errors for consistency
-                    if e.status == 429:
-                        raise openai.RateLimitError(
-                            f"Rate limit error: {e.message}",
-                            response=None,
-                            body=e.message,
-                        ) from e
-                    elif e.status >= 500:
-                        raise openai.APIConnectionError(
-                            f"Server error: {e.message}",
-                            request=None,
-                        ) from e
-                    else:
-                        raise openai.APIError(
-                            f"API error: {e.message}",
-                            request=None,
-                            response=None,
-                        ) from e
-                # Retry on server errors
-                if e.status >= 500:
-                    await asyncio.sleep(2 ** (attempt - 1))
-                    continue
-                raise
+
             except (aiohttp.ClientError, asyncio.TimeoutError) as e:
                 if attempt >= max_attempts:
-                    raise openai.APIConnectionError(
-                        f"Connection error: {str(e)}",
-                        request=None,
+                    raise ExternalServiceAPIError(
+                        f"OpenAI proxy connection error: {e!r}"
                     ) from e
                 await asyncio.sleep(2 ** (attempt - 1))
                 continue
