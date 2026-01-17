@@ -5,6 +5,7 @@ UPSTREAM_BASE = os.environ.get("UPSTREAM_BASE", "http://api:8080").rstrip("/")
 MAX_BODY_BYTES = int(os.environ.get("MAX_BODY_BYTES", "1048576"))  # 1 MiB default
 DROPBOX_DIR_IN_CONTAINER="/dropbox"
 
+## Build a directory for this host in the dropbox cloud dir ##
 os.makedirs(
     os.path.join(
         DROPBOX_DIR_IN_CONTAINER,
@@ -47,7 +48,7 @@ async def handler(request: web.Request) -> web.StreamResponse:
         ) as resp:
             resp_body = await resp.read()
 
-            paths_to_log = ["/v2/memories"]
+            paths_to_log = ["/api/v2/memories"]
 
             entry = None
 
@@ -56,6 +57,8 @@ async def handler(request: web.Request) -> web.StreamResponse:
             request_path = request.path
             is_json = "application/json" in ct or ct.endswith("+json")
             if request_path in paths_to_log and is_json and body:
+                print("Saving", upstream_url)
+
                 ts = datetime.datetime.utcnow().strftime("%Y%m%dT%H%M%S.%fZ")
                 rid = request.headers.get("x-request-id", str(uuid.uuid4()))
                 try:
@@ -73,6 +76,8 @@ async def handler(request: web.Request) -> web.StreamResponse:
                     )
                     with open(filename, "w", encoding="utf-8") as f:
                         json.dump(entry["req_body"], f, ensure_ascii=False)
+            else:
+                print("Passthrough", upstream_url)
 
             # Return upstream response
             out = web.Response(body=resp_body, status=resp.status)
