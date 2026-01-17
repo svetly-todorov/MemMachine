@@ -62,8 +62,10 @@ services:
     pull_policy: ${PULL_POLICY:-always}
     container_name: memmachine-app
     restart: unless-stopped
-    ports:
-      - "${MEMORY_SERVER_PORT:-8080}:8080"
+    expose:
+      - "8080"
+    # ports:
+    #   - "${MEMORY_SERVER_PORT:-8080}:8080"
     environment:
       # Database configuration
       POSTGRES_HOST: ${POSTGRES_HOST:-postgres}
@@ -105,6 +107,26 @@ services:
       - memmachine-network
     extra_hosts:
       - "host.docker.internal:host-gateway"
+
+  # Python access-log proxy (public entrypoint)
+  boxproxy:
+    build: ./boxproxy
+    container_name: memmachine-boxproxy
+    restart: unless-stopped
+    environment:
+      UPSTREAM_BASE: "http://memmachine:8080"
+      MAX_BODY_BYTES: "1048576" # 1 MiB
+      # If you only want successful requests logged, set this and update proxy.py to honor it
+      # LOG_ONLY_2XX: "true"
+    ports:
+      - "${MEMORY_SERVER_PORT:-8080}:8080"
+    volumes:
+      - ${DROPBOX_HOST_DIR}:/dropbox
+    depends_on:
+      memmachine:
+        condition: service_healthy
+    networks:
+      - memmachine-network
 
 volumes:
   postgres_data:
