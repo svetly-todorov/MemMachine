@@ -9,7 +9,6 @@ from os import listdir
 from os.path import isdir, join
 import sys
 import json
-import socket
 import subprocess
 import threading
 from datetime import datetime, timezone
@@ -50,11 +49,20 @@ def get_dropbox_path() -> Path:
     return dropbox_dir_path
 
 
+def gethostname() -> str:
+    host_hostname = os.getenv("HOST_HOSTNAME")
+    if host_hostname == None:
+        log_message("Expected HOST_HOSTNAME to be set")
+        exit(0)
+    
+    return host_hostname
+
+
 def get_state_file_path() -> Path:
     """Get the path to the state file based on current hostname."""
     dropbox_dir_path = get_dropbox_path()
     
-    hostname = socket.gethostname()
+    hostname = gethostname()
     return dropbox_dir_path / f"{hostname}.state"
 
 
@@ -112,7 +120,7 @@ def diff_timestamps(timestamp1: str, timestamp2: str) -> float:
 
 
 def extract_timestamp_from_filename(filepath: Path) -> str:
-    """Extract timestamp from filename (e.g., '2025-12-29T19:50:59.952Z.msg' -> '2025-12-29T19:50:59.952Z')."""
+    """Extract timestamp from filename (e.g., '2025-12-29T19:50:59.952Z.json' -> '2025-12-29T19:50:59.952Z')."""
     return filepath.stem  # Gets filename without extension
 
 
@@ -185,11 +193,11 @@ class MessageEventHandler(FileSystemEventHandler):
         if event.is_directory:
             return
 
-        if message_path.suffix == ".msg":
+        if message_path.suffix == ".json":
             ts = message_path.stem
             host = message_path.parent.name
             
-            if not forward_api_v2_memories(event.src_path, API_URL):
+            if not forward_api_v2_memories(message_path, API_URL):
                 log_message(f"Error: Failed to forward /api/v2/memories from {event.src_path}")
                 return
 
@@ -203,7 +211,7 @@ def add_new_messages():
     saved_state = load_state_file(get_state_file_path())
 
     ## Ignore the current hostname + memmachine directory (allows me to keep this project in dropbox, not have to mirror changes to the repo) ##
-    ignore_list = [socket.gethostname(), "memmachine", "mmemmachine"]
+    ignore_list = [gethostname(), "memmachine", "mmemmachine"]
 
     dropbox_dir_path = get_dropbox_path()
 
@@ -251,7 +259,7 @@ def watch_for_messages() -> None:
     log_message(f"Watching directory: {dropbox_dir_path}")
     observer = Observer()
     message_event_handler = MessageEventHandler()
-    observer.schedule(message_event_handler, str(dropbox_dir), recursive=True)
+    observer.schedule(message_event_handler, str(dropbox_dir_path), recursive=True)
     observer.start()
     log_message("File system watcher started successfully")
     try:
@@ -271,7 +279,7 @@ if __name__ == "__main__":
         log_message("=" * 60)
         log_message("MemMachine Daemon starting...")
         log_message(f"API URL: {API_URL}")
-        log_message(f"Hostname: {socket.gethostname()}")
+        log_message(f"Hostname: {gethostname()}")
         log_message("=" * 60)
         
         add_new_messages()

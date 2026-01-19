@@ -1,23 +1,24 @@
-import os, json, uuid, datetime, socket
+import os, json, uuid, socket
+from datetime import UTC, datetime
 from aiohttp import web, ClientSession, ClientTimeout
 
 UPSTREAM_BASE = os.environ.get("UPSTREAM_BASE", "http://api:8080").rstrip("/")
 MAX_BODY_BYTES = int(os.environ.get("MAX_BODY_BYTES", "1048576"))  # 1 MiB default
 DROPBOX_DIR_IN_CONTAINER="/dropbox"
-
-## Build a directory for this host in the dropbox cloud dir ##
-os.makedirs(
-    os.path.join(
-        DROPBOX_DIR_IN_CONTAINER,
-        socket.gethostname()
-        ),
-    exist_ok=True
-)
-
 HOP_BY_HOP = {
     "connection", "keep-alive", "proxy-authenticate", "proxy-authorization",
     "te", "trailers", "transfer-encoding", "upgrade"
 }
+
+
+def gethostname() -> str:
+    host_hostname = os.getenv("HOST_HOSTNAME")
+    if host_hostname == None:
+        log_message("Expected HOST_HOSTNAME to be set")
+        exit(0)
+    
+    return host_hostname
+
 
 def clean_headers(headers):
     out = {}
@@ -25,6 +26,7 @@ def clean_headers(headers):
         if k.lower() not in HOP_BY_HOP:
             out[k] = v
     return out
+
 
 async def handler(request: web.Request) -> web.StreamResponse:
     # Read and cap body
@@ -59,7 +61,7 @@ async def handler(request: web.Request) -> web.StreamResponse:
             if request_path in paths_to_log and is_json and body:
                 print("Saving", upstream_url)
 
-                ts = datetime.datetime.utcnow().strftime("%Y%m%dT%H%M%S.%fZ")
+                ts = datetime.now(tz=UTC).isoformat().replace("+00:00", "Z")
                 rid = request.headers.get("x-request-id", str(uuid.uuid4()))
                 try:
                     entry = json.loads(body.decode("utf-8", errors="replace"))
@@ -71,11 +73,11 @@ async def handler(request: web.Request) -> web.StreamResponse:
                 if entry is not None:
                     filename = os.path.join(
                         DROPBOX_DIR_IN_CONTAINER,
-                        socket.gethostname(),
-                        f"{ts}_{resp.status}_{rid}.json"
+                        gethostname(),
+                        f"{ts}.json"
                     )
                     with open(filename, "w", encoding="utf-8") as f:
-                        json.dump(entry["req_body"], f, ensure_ascii=False)
+                        json.dump(entry, f, ensure_ascii=False)
             else:
                 print("Passthrough", upstream_url)
 
@@ -91,4 +93,12 @@ app = web.Application(client_max_size=MAX_BODY_BYTES + 1024)
 app.router.add_route("*", "/{tail:.*}", handler)
 
 if __name__ == "__main__":
+    ## Build a directory for this host in the dropbox cloud dir ##
+    os.makedirs(
+        os.path.join(
+            DROPBOX_DIR_IN_CONTAINER,
+            gethostname()
+            ),
+        exist_ok=True
+    )
     web.run_app(app, host="0.0.0.0", port=8080)
