@@ -116,6 +116,7 @@ services:
     environment:
       UPSTREAM_BASE: "http://memmachine:8080"
       MAX_BODY_BYTES: "1048576" # 1 MiB
+      HOST_HOSTNAME: ${HOST_HOSTNAME}
     ports:
       - "${MEMORY_SERVER_PORT:-8080}:8080"
     volumes:
@@ -128,9 +129,11 @@ services:
 
   # Python access-log proxy (public entrypoint)
   boxsync:
-      build: ./boxsync
+    build: ./boxsync
     container_name: memmachine-boxsync
     restart: unless-stopped
+    environment:
+      HOST_HOSTNAME: ${HOST_HOSTNAME}
     volumes:
       - ${DROPBOX_USER_DIR}:/dropbox
     depends_on:
