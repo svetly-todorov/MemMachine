@@ -111,6 +111,7 @@ services:
   # Python access-log proxy (public entrypoint)
   boxproxy:
     build: ./boxproxy
+    image: memmachine-boxproxy:latest
     container_name: memmachine-boxproxy
     restart: unless-stopped
     environment:
@@ -130,6 +131,7 @@ services:
   # Python access-log proxy (public entrypoint)
   boxsync:
     build: ./boxsync
+    image: memmachine-boxsync:latest
     container_name: memmachine-boxsync
     restart: unless-stopped
     environment:
