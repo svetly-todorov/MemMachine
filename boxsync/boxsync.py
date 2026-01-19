@@ -186,17 +186,24 @@ def dump_to_state_file(state: dict):
         print(f"Error: Failed to save state file: {e}", file=sys.stderr)
 
 
+## Known issue on MacOS: this seems to ignore files in new directories
+## (i.e. directories that were created during this run of the program)
 class MessageEventHandler(FileSystemEventHandler):
     def on_created(self, event: FileSystemEvent) -> None:
         message_path = Path(event.src_path)
 
         if event.is_directory:
+            log_message(f"Info: Skipping event on directory for path {message_path}")
             return
 
         if message_path.suffix == ".json":
             ts = message_path.stem
             host = message_path.parent.name
-            
+
+            if host == gethostname():
+                log_message(f"Info: Ignoring {message_path.name} from current host {host}")
+                return
+
             if not forward_api_v2_memories(message_path, API_URL):
                 log_message(f"Error: Failed to forward /api/v2/memories from {event.src_path}")
                 return
