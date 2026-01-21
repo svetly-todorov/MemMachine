@@ -826,15 +826,19 @@ wait_for_health() {
     fi
 }
 
+get_tunnel_url() {
+    docker logs memmachine-tunnel 2>&1 | grep -Eo 'https?://[^[:space:]]*trycloudflare\.com[^[:space:]]*'
+}
+
 # Show service information
 show_service_info() {
     print_success "🎉 MemMachine is now running!"
     echo ""
     echo "Service URLs:"
-    echo "  📊 MemMachine API Docs: http://localhost:${MEMORY_SERVER_PORT:-8080}/docs"
+    echo "  📊 MemMachine API Docs: http://localhost:${MEMORY_SERVER_PORT:-8080}/docs   (Public URL: $(get_tunnel_url)/docs)"
     echo "  🗄️  Neo4j Browser: http://localhost:${NEO4J_HTTP_PORT:-7474}"
-    echo "  📈 Health Check: http://localhost:${MEMORY_SERVER_PORT:-8080}/api/v2/health"
-    echo "  📊 Metrics: http://localhost:${MEMORY_SERVER_PORT:-8080}/api/v2/metrics"
+    echo "  📈 Health Check: http://localhost:${MEMORY_SERVER_PORT:-8080}/api/v2/health (Public URL: $(get_tunnel_url)/api/v2/health)"
+    echo "  📊 Metrics: http://localhost:${MEMORY_SERVER_PORT:-8080}/api/v2/metrics     (Public URL: $(get_tunnel_url)/api/v2/metrics)"
     echo ""
     echo "Database Access:"
     echo "  🐘 PostgreSQL: localhost:${POSTGRES_PORT:-5432} (user: ${POSTGRES_USER:-memmachine}, db: ${POSTGRES_DB:-memmachine})"
@@ -934,6 +938,108 @@ build_image() {
     docker build --build-arg GPU=$gpu --build-arg SCM_VERSION="$scm_version" -t "$name" .
 }
 
+do_oauth() {
+    local console_base=""
+    local keycloak_api=""
+    local platform_api=""
+    local realm="memmachine-platform"
+    local client_id="memmachine-platform-cli" # <-- your new Keycloak client
+    local scope="openid profile email"        # add roles/offline_access if you need it
+    local tunnel_url=""
+    local device_json=""
+    local err=""
+
+    # Get the console base URL
+    if test -z ${console_base:-}; then
+        read -p "Please enter the URL for the memmachine console platform (e.g. https://console.dev.memmachine.ai/): " console_base
+    fi
+    keycloak_api="${console_base}/auth"
+    platform_api="${console_base}/api"
+
+    # Read the tunnel URL from the tunnel container logs
+    if ! docker logs memmachine-tunnel 2>&1 | grep -Eo 'https?://[^[:space:]]*trycloudflare\.com[^[:space:]]*'; then
+        print_error "Failed to get the tunnel URL from the tunnel container logs."
+        exit 1
+    fi
+    tunnel_url=$(docker logs memmachine-tunnel 2>&1 | grep -Eo 'https?://[^[:space:]]*trycloudflare\.com[^[:space:]]*')
+
+    # Ask Keycloak for a device code
+    device_json="$(
+    curl -k -sS -X POST \
+        "$keycloak_api/realms/$realm/protocol/openid-connect/auth/device" \
+        -H "Content-Type: application/x-www-form-urlencoded" \
+        --data-urlencode "client_id=$client_id" \
+        --data-urlencode "scope=$scope"
+    )"
+
+    local device_code="$(printf '%s' "$device_json" | python3 -c 'import sys,json; print(json.load(sys.stdin)["device_code"])')"
+    local user_code="$(printf '%s' "$device_json" | python3 -c 'import sys,json; print(json.load(sys.stdin)["user_code"])')"
+    local verify_uri="$(printf '%s' "$device_json" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("verification_uri_complete") or json.load(sys.stdin)["verification_uri"])' 2>/dev/null || true)"
+    local interval="$(printf '%s' "$device_json" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("interval", 5))')"
+    local expires_in="$(printf '%s' "$device_json" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("expires_in", 600))')"
+
+    echo ""
+    echo "Login required."
+    echo "Open ${verify_uri:-$keycloak_api} and log in to the MemMachine Platform Console."
+    echo "If prompted for a code, enter: $user_code"
+    echo ""
+
+    # Poll token endpoint until authorized
+    local deadline=$(( $(date +%s) + expires_in ))
+    local access_token=""
+
+    while [ "$(date +%s)" -lt "$deadline" ]; do
+    local token_json="$(
+        curl -k -sS -X POST \
+        "$keycloak_api/realms/$realm/protocol/openid-connect/token" \
+        -H "Content-Type: application/x-www-form-urlencoded" \
+        --data-urlencode "grant_type=urn:ietf:params:oauth:grant-type:device_code" \
+        --data-urlencode "client_id=$client_id" \
+        --data-urlencode "device_code=$device_code"
+    )"
+
+    # If success, it will contain access_token; if not, it contains error fields
+    access_token="$(printf '%s' "$token_json" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("access_token",""))' 2>/dev/null || true)"
+    if [ -n "$access_token" ]; then
+        break
+    fi
+
+    err="$(printf '%s' "$token_json" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("error",""))' 2>/dev/null || true)"
+    case "$err" in
+        authorization_pending)
+        sleep "$interval"
+        ;;
+        slow_down)
+        interval=$((interval + 2))
+        sleep "$interval"
+        ;;
+        expired_token|access_denied)
+        echo "Login failed: $err"
+        exit 1
+        ;;
+        *)
+        # Could be transient / unexpected
+        sleep "$interval"
+        ;;
+    esac
+    done
+
+    if [ -z "$access_token" ]; then
+    echo "Login timed out."
+    exit 1
+    fi
+
+    # Call the MemMachine Platform API to register the tunnel
+    curl -k --request POST \
+    --url ${platform_api}/v0/membox/tunnels \
+    --header 'Accept: application/json' \
+    --header 'Content-Type: application/json' \
+    --header "Authorization: Bearer ${access_token}" \
+    --data "{\"device_name\": \"$(hostname)\", \"public_url\": \"${tunnel_url}\"}"
+
+    echo "Done."
+}
+
 # Main execution
 main() {
     echo "MemMachine Docker Startup Script"
@@ -948,6 +1054,7 @@ main() {
     check_required_config
     start_services
     wait_for_health
+    do_oauth
     show_service_info
 }
 

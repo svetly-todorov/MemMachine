@@ -144,6 +144,16 @@ services:
     networks:
       - memmachine-network
 
+  tunnel:
+    image: cloudflare/cloudflared
+    container_name: memmachine-tunnel
+    restart: unless-stopped
+    command: 
+      - tunnel
+      - --url
+      - http://boxproxy:8080
+    networks:
+      - memmachine-network
 
 volumes:
   postgres_data:
