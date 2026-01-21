@@ -949,8 +949,11 @@ do_oauth() {
     local device_json=""
     local err=""
 
+    print_info "Registering this MemMachine instance with the MemMachine Platform..."
+
     # Get the console base URL
     if test -z ${console_base:-}; then
+        print_prompt
         read -p "Please enter the URL for the memmachine console platform (e.g. https://console.dev.memmachine.ai/): " console_base
     fi
     keycloak_api="${console_base}/auth"
@@ -965,7 +968,7 @@ do_oauth() {
 
     # Ask Keycloak for a device code
     device_json="$(
-    curl -k -sS -X POST \
+        curl -k -sS -X POST \
         "$keycloak_api/realms/$realm/protocol/openid-connect/auth/device" \
         -H "Content-Type: application/x-www-form-urlencoded" \
         --data-urlencode "client_id=$client_id" \
@@ -978,66 +981,71 @@ do_oauth() {
     local interval="$(printf '%s' "$device_json" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("interval", 5))')"
     local expires_in="$(printf '%s' "$device_json" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("expires_in", 600))')"
 
-    echo ""
-    echo "Login required."
-    echo "Open ${verify_uri:-$keycloak_api} and log in to the MemMachine Platform Console."
-    echo "If prompted for a code, enter: $user_code"
-    echo ""
+    print_info "Login required."
+    print_info "Open ${verify_uri:-$keycloak_api} and log in to the MemMachine Platform Console."
+    print_info "If prompted for a code, enter: $user_code"
 
     # Poll token endpoint until authorized
     local deadline=$(( $(date +%s) + expires_in ))
     local access_token=""
+    local token_json=""
 
     while [ "$(date +%s)" -lt "$deadline" ]; do
-    local token_json="$(
-        curl -k -sS -X POST \
-        "$keycloak_api/realms/$realm/protocol/openid-connect/token" \
-        -H "Content-Type: application/x-www-form-urlencoded" \
-        --data-urlencode "grant_type=urn:ietf:params:oauth:grant-type:device_code" \
-        --data-urlencode "client_id=$client_id" \
-        --data-urlencode "device_code=$device_code"
-    )"
+        token_json="$(
+            curl -k -sS -X POST \
+            "$keycloak_api/realms/$realm/protocol/openid-connect/token" \
+            -H "Content-Type: application/x-www-form-urlencoded" \
+            --data-urlencode "grant_type=urn:ietf:params:oauth:grant-type:device_code" \
+            --data-urlencode "client_id=$client_id" \
+            --data-urlencode "device_code=$device_code"
+        )"
 
-    # If success, it will contain access_token; if not, it contains error fields
-    access_token="$(printf '%s' "$token_json" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("access_token",""))' 2>/dev/null || true)"
-    if [ -n "$access_token" ]; then
-        break
-    fi
+        # If success, it will contain access_token; if not, it contains error fields
+        access_token="$(printf '%s' "$token_json" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("access_token",""))' 2>/dev/null || true)"
+        if [ -n "$access_token" ]; then
+            break
+        fi
 
-    err="$(printf '%s' "$token_json" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("error",""))' 2>/dev/null || true)"
-    case "$err" in
-        authorization_pending)
-        sleep "$interval"
-        ;;
-        slow_down)
-        interval=$((interval + 2))
-        sleep "$interval"
-        ;;
-        expired_token|access_denied)
-        echo "Login failed: $err"
-        exit 1
-        ;;
-        *)
-        # Could be transient / unexpected
-        sleep "$interval"
-        ;;
-    esac
+        err="$(printf '%s' "$token_json" | python3 -c 'import sys,json; print(json.load(sys.stdin).get("error",""))' 2>/dev/null || true)"
+        case "$err" in
+            authorization_pending)
+            sleep "$interval"
+            ;;
+            slow_down)
+            interval=$((interval + 2))
+            sleep "$interval"
+            ;;
+            expired_token|access_denied)
+            print_error "Login failed: $err"
+            exit 1
+            ;;
+            *)
+            # Could be transient / unexpected
+            sleep "$interval"
+            ;;
+        esac
     done
 
     if [ -z "$access_token" ]; then
-    echo "Login timed out."
+    print_error "Login timed out."
     exit 1
     fi
 
+    # Delete all existing tunnels
+    curl -k -s --request DELETE \
+    --url ${platform_api}/v0/membox/tunnels \
+    --header 'Accept: application/json' \
+    --header "Authorization: Bearer ${access_token}"
+
     # Call the MemMachine Platform API to register the tunnel
-    curl -k --request POST \
+    curl -k -s --request POST \
     --url ${platform_api}/v0/membox/tunnels \
     --header 'Accept: application/json' \
     --header 'Content-Type: application/json' \
     --header "Authorization: Bearer ${access_token}" \
     --data "{\"device_name\": \"$(hostname)\", \"public_url\": \"${tunnel_url}\"}"
 
-    echo "Done."
+    print_success "Done."
 }
 
 # Main execution
